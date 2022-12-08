@@ -61,6 +61,7 @@ mod tests {
 
         let (index, value) = day1(&lines)?;
         println!("index={}, value={}", index, value);
+        assert_eq!((index, value), (137, 75622));
 
         Ok(())
     }
@@ -76,20 +77,16 @@ mod tests {
 
     #[test]
     fn test_part2_with_real_data() -> Result<()> {
-        let lines = read_file()?;
-
-        let (index, value) = day1(&lines)?;
-        println!("index={}, value={}", index, value);
-
-        Ok(())
-    }
-
-    fn read_file() -> Result<Vec<&str>> {
         let mut dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         dir.push("resources/test/day1");
 
         let contents = fs::read_to_string(dir)?;
-        let result: Vec<&str> = contents.lines().collect();
-        Ok(result)
+        let lines: Vec<&str> = contents.lines().collect();
+
+        let expected = 213159;
+        let actual = day1_part2(&lines)?;
+        assert_eq!(actual, expected, "expected {}, got {}", expected, actual);
+
+        Ok(())
     }
 }

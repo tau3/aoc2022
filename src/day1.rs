@@ -1,5 +1,3 @@
-use anyhow::Context;
-
 pub fn day1<S: AsRef<str>>(input: &Vec<S>) -> (usize, u32) {
     let calories_per_elf = calories_per_elf(input);
 
@@ -7,7 +5,6 @@ pub fn day1<S: AsRef<str>>(input: &Vec<S>) -> (usize, u32) {
         .iter()
         .enumerate()
         .max_by(|(_, x), (_, y)| x.cmp(y))
-        .context("empty input")
         .map(|(index, calories)| (index + 1, calories.to_owned()))
         .expect("day1: unexpected empty input");
 

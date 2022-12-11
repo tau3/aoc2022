@@ -37,9 +37,9 @@ pub fn solve_part2<S: AsRef<str>>(input: &Vec<S>) -> usize {
     let mut result = 0;
     for i in 0..input.len() / 3 {
         let badge = badge(&[
-            input[i].as_ref(),
-            input[i + 1].as_ref(),
-            input[i + 2].as_ref(),
+            input[3 * i].as_ref(),
+            input[3 * i + 1].as_ref(),
+            input[3 * i + 2].as_ref(),
         ]);
         let score = item_to_priority(badge);
         result += score;
@@ -55,6 +55,7 @@ fn badge(group: &[&str; 3]) -> char {
         result = intersection.iter().copied().copied().collect();
     }
 
+    assert!(result.len() == 1, "too long intersection: {:?}", result);
     result
         .into_iter()
         .next()
@@ -112,6 +113,6 @@ mod tests {
     fn test_part2_with_real_data() {
         let input = util::read_real_data("day3");
         let actual = solve_part2(&input);
-        assert_eq!(actual, 2487);
+        assert_eq!(actual, 2639);
     }
 }

@@ -1,8 +1,8 @@
 use std::collections::VecDeque;
 
 pub fn solve(input: Vec<&str>) -> String {
-    let input = input.into();
-    let (initial, moves) = parse(&input);
+    let mut input = input.into();
+    let (initial, moves) = parse(&mut input);
     let mut stacks = parse_initial(&initial);
 
     for move_ in moves {
@@ -22,9 +22,9 @@ fn headers(stacks: [VecDeque<char>; POSITIONS.len()]) -> String {
     result
 }
 
-fn parse<'a>(input: &'a VecDeque<&str>) -> (Vec<&'a str>, Vec<&'a str>) {
+fn parse<'a>(input: &'a mut VecDeque<&str>) -> (Vec<&'a str>, &'a VecDeque<&'a str>) {
     let mut initial = Vec::new();
-   
+
     while let Some(item) = input.pop_front() {
         if !item.is_empty() {
             initial.push(item);
@@ -33,7 +33,7 @@ fn parse<'a>(input: &'a VecDeque<&str>) -> (Vec<&'a str>, Vec<&'a str>) {
         }
     }
 
-    (initial, (*input).into())
+    (initial, input)
 }
 
 const POSITIONS: [usize; 9] = [1, 5, 9, 13, 17, 21, 25, 29, 33];
@@ -64,16 +64,15 @@ fn parse_move(move_: &str) -> (u32, u32, u32) {
     )
 }
 
-fn apply_move(
-    stacks: &mut [VecDeque<char>; POSITIONS.len()],
-    (amount, from, to): (u32, u32, u32),
-) {
-    let mut source = &mut stacks[(from - 1) as usize];
-    let mut target = &mut stacks[(to - 1) as usize];
+fn apply_move(stacks: &mut [VecDeque<char>; POSITIONS.len()], (amount, from, to): (u32, u32, u32)) {
     for _ in 0..amount {
-        let item = source.pop_front().unwrap();
-        target.push_front(item);
+        pop_once(stacks, (from, to));
     }
+}
+
+fn pop_once(stacks: &mut [VecDeque<char>; POSITIONS.len()], (from, to): (u32, u32)) {
+    let item = stacks[(from - 1) as usize].pop_front().unwrap();
+    stacks[(to - 1) as usize].push_front(item);
 }
 
 #[cfg(test)]

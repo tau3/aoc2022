@@ -13,7 +13,7 @@ pub fn solve(input: Vec<&str>) -> String {
     headers(stacks)
 }
 
-fn headers(stacks: [VecDeque<char>; POSITIONS.len()]) -> String {
+fn headers(stacks: Vec<VecDeque<char>>) -> String {
     let mut result = String::new();
     for mut stack in stacks {
         let item = stack.pop_front().unwrap();
@@ -36,20 +36,26 @@ fn parse<'a>(input: &'a mut VecDeque<&str>) -> (Vec<&'a str>, &'a VecDeque<&'a s
     (initial, input)
 }
 
-const POSITIONS: [usize; 9] = [1, 5, 9, 13, 17, 21, 25, 29, 33];
-
-fn parse_initial(initial: &Vec<&str>) -> [VecDeque<char>; POSITIONS.len()] {
-    let mut result = vec![VecDeque::new(); POSITIONS.len()];
-    for line in initial {
-        for i in POSITIONS {
-            let chars: Vec<char> = line.chars().collect();
-            if chars[i] != ' ' {
-                result[i].push_front(chars[i]);
+fn parse_initial(initial: &Vec<&str>) -> Vec<VecDeque<char>> {
+    let initial_len = initial.len();
+    let max_count = count(&initial[initial_len - 1]);
+    let mut result = vec![VecDeque::new(); max_count];
+    for line in initial[0..initial.len() - 1].iter() {
+        let chars: Vec<char> = line.chars().collect();
+        let count = count(&line);
+        for i in 0..count {
+            let pos = 4 * i + 1;
+            if chars[pos] != ' ' {
+                result[i].push_back(chars[pos]);
             }
         }
     }
 
     result.try_into().unwrap()
+}
+
+fn count(line: &str) -> usize {
+    (line.len() + 1) / 4
 }
 
 fn parse_move(move_: &str) -> (u32, u32, u32) {
@@ -64,13 +70,13 @@ fn parse_move(move_: &str) -> (u32, u32, u32) {
     )
 }
 
-fn apply_move(stacks: &mut [VecDeque<char>; POSITIONS.len()], (amount, from, to): (u32, u32, u32)) {
+fn apply_move(stacks: &mut Vec<VecDeque<char>>, (amount, from, to): (u32, u32, u32)) {
     for _ in 0..amount {
         pop_once(stacks, (from, to));
     }
 }
 
-fn pop_once(stacks: &mut [VecDeque<char>; POSITIONS.len()], (from, to): (u32, u32)) {
+fn pop_once(stacks: &mut Vec<VecDeque<char>>, (from, to): (u32, u32)) {
     let item = stacks[(from - 1) as usize].pop_front().unwrap();
     stacks[(to - 1) as usize].push_front(item);
 }
@@ -78,6 +84,17 @@ fn pop_once(stacks: &mut [VecDeque<char>; POSITIONS.len()], (from, to): (u32, u3
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_parse_initial() {
+        let initial = vec!["    [D]", "[N] [C]", "[Z] [M] [P]", " 1   2   3 "];
+        let actual = parse_initial(&initial);
+        assert_eq!(actual.len(), 3);
+
+        let second: &VecDeque<char> = &actual[1];
+        let expected: VecDeque<char> = vec!['D', 'C', 'M'].into();
+        assert_eq!(second, &expected);
+    }
 
     #[test]
     fn test_solve() {

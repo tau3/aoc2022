@@ -1,4 +1,4 @@
-fn fully_contains((s1, e1): (u32, u32), (s2, e2): (u32, u32)) -> bool {
+pub fn fully_contains((s1, e1): (u32, u32), (s2, e2): (u32, u32)) -> bool {
     (s1 >= s2 && e1 <= e2) || (s2 >= s1 && e2 <= e1)
 }
 

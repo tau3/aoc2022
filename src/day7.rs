@@ -5,9 +5,10 @@ type Arena = Vec<Entry>;
 type Inode = usize;
 
 pub fn solve(mut input: VecDeque<&str>) -> usize {
-    let mut fs = FileSystem::new();
-    fs.traverse(&mut input);
-    fs.delete_candidates()
+    let fs = FileSystem::new();
+    let mut interpreter = Interpreter { fs };
+    interpreter.traverse(&mut input);
+    interpreter.estimate_cleanup_space()
 }
 
 #[derive(PartialEq, Debug)]
@@ -68,49 +69,25 @@ impl FileSystem {
             self.cwd = *self.child_to_parent.get(&self.cwd).unwrap();
             return;
         }
-        let children = self.children(self.cwd);
-        if children.contains_key(dir) {
-            let inode = children.get(dir).unwrap().address;
-            self.cwd = inode;
+
+        let children = self.ls_cwd();
+        self.cwd = if let Some(entry) = children.get(dir) {
+            entry.address
         } else {
-            self.cwd = self.mkdir(dir);
+            self.mkdir(dir)
         }
     }
 
-    fn track_child(&mut self, line: &str) {
-        let mut tokens = line.split(' ');
-        let size = tokens.next().unwrap();
-        let name = tokens.next().unwrap();
-        self.create_child(name, size);
-    }
-
-    fn children(&self, dir: Inode) -> HashMap<String, &Entry> {
+    fn ls(&self, dir: Inode) -> HashMap<String, &Entry> {
         self.arena
             .iter()
-            .filter(|x| self.child_to_parent.get(&x.address) == Some(&dir))
-            .map(|e| (e.name.to_owned(), e))
+            .filter(|entry| self.child_to_parent.get(&entry.address) == Some(&dir))
+            .map(|entry| (entry.name.to_owned(), entry))
             .collect()
     }
 
-    fn create_child(&mut self, name: &str, size_or_dir_flag: &str) -> Inode {
-        let children = self.children(self.cwd);
-        if size_or_dir_flag == "dir" {
-            if children.contains_key(name) {
-                return children.get(name).unwrap().address;
-            } else {
-                self.mkdir(name)
-            }
-        } else {
-            if children.contains_key(name) {
-                return children.get(name).unwrap().address;
-            }
-            self.touch(
-                name,
-                size_or_dir_flag.parse().unwrap_or_else(|_| {
-                    panic!("create_child: failed to parse {}", size_or_dir_flag)
-                }),
-            )
-        }
+    fn ls_cwd(&self) -> HashMap<String, &Entry> {
+        self.ls(self.cwd)
     }
 
     fn touch(&mut self, name: &str, size: usize) -> Inode {
@@ -129,10 +106,10 @@ impl FileSystem {
 
     fn du(&self, inode: Inode) -> usize {
         let entry = &self.arena[inode];
-        let result = match entry.entry_type {
+        match entry.entry_type {
             Type::File => entry.size,
             Type::Dir => {
-                let children = self.children(inode);
+                let children = self.ls(inode);
                 let mut result = 0;
                 for child in children.values() {
                     let size = self.du(child.address);
@@ -140,11 +117,10 @@ impl FileSystem {
                 }
                 result
             }
-        };
-        result
+        }
     }
 
-    fn delete_candidates(&self) -> usize {
+    fn estimate_cleanup_space(&self) -> usize {
         let mut result = 0;
         for entry in self.arena.iter() {
             let du = self.du(entry.address);
@@ -154,7 +130,13 @@ impl FileSystem {
         }
         result
     }
+}
 
+struct Interpreter {
+    fs: FileSystem,
+}
+
+impl Interpreter {
     fn traverse(&mut self, input: &mut VecDeque<&str>) {
         while !input.is_empty() {
             let line = input.pop_front().unwrap();
@@ -163,31 +145,64 @@ impl FileSystem {
                 let cmd = tokens.nth(1).unwrap();
                 if cmd == "cd" {
                     let target_dir = tokens.next().unwrap();
-                    self.cd(target_dir);
+                    self.fs.cd(target_dir);
                 } else if cmd == "ls" {
-                    while !input.is_empty() {
-                        let head = input.pop_front();
-                        if let Some(fr) = head {
-                            if !fr.starts_with('$') {
-                                self.track_child(fr);
-                            } else {
-                                input.push_front(fr);
-                                break;
-                            }
-                        }
-                    }
-                } else {
-                    panic!("unknown cmd {}", cmd);
+                    self.tranverse_ls(input);
                 }
             }
         }
+    }
+
+    fn tranverse_ls(&mut self, input: &mut VecDeque<&str>) {
+        while !input.is_empty() {
+            let head = input.pop_front();
+            if let Some(fr) = head {
+                if !fr.starts_with('$') {
+                    self.track_child(fr);
+                } else {
+                    input.push_front(fr);
+                    break;
+                }
+            }
+        }
+    }
+
+    fn track_child(&mut self, line: &str) {
+        let mut tokens = line.split(' ');
+        let size = tokens.next().unwrap();
+        let name = tokens.next().unwrap();
+        self.create_child(name, size);
+    }
+
+    fn create_child(&mut self, name: &str, size_or_dir_flag: &str) -> Inode {
+        let children = self.fs.ls_cwd();
+        if size_or_dir_flag == "dir" {
+            if children.contains_key(name) {
+                return children.get(name).unwrap().address;
+            } else {
+                return self.fs.mkdir(name);
+            }
+        }
+        if children.contains_key(name) {
+            children.get(name).unwrap().address
+        } else {
+            let size = size_or_dir_flag
+                .parse()
+                .unwrap_or_else(|_| panic!("create_child: failed to parse {}", size_or_dir_flag));
+            self.fs.touch(name, size)
+        }
+    }
+
+    fn estimate_cleanup_space(&self) -> usize {
+        self.fs.estimate_cleanup_space()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
+    use crate::util;
+    
     #[test]
     fn test_solve() {
         let input = vec![
@@ -216,5 +231,13 @@ mod tests {
             "7214296 k",
         ];
         assert_eq!(solve(input.into()), 95437);
+    }
+
+    #[test]
+    fn test_with_real_data(){
+	let data = util::read_real_data("day7");
+	let data = data.iter().map(|line| line.as_str()).collect();
+
+	assert_eq!(solve(data), 1427048);
     }
 }

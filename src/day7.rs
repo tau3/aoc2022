@@ -1,11 +1,8 @@
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::collections::VecDeque;
-use std::fmt::Debug;
-use std::fmt::Formatter;
-use std::rc::Rc;
 
-type Arena = Rc<RefCell<Vec<Box<dyn Entry>>>>;
+type Arena = Vec<Entry>;
+type Inode = usize;
 
 pub fn solve(mut input: VecDeque<&str>) -> usize {
     let mut fs = FileSystem::new();
@@ -13,214 +10,146 @@ pub fn solve(mut input: VecDeque<&str>) -> usize {
     fs.delete_candidates()
 }
 
-struct Dir {
-    name: String,
-    parent: usize,
-    contents: HashMap<String, usize>,
-    arena: Arena,
+#[derive(PartialEq, Debug)]
+enum Type {
+    File,
+    Dir,
 }
 
-impl Dir {
-    fn new(name: String, parent: usize, arena: Arena) -> Self {
-        Dir {
-            name,
-            parent,
-            contents: HashMap::new(),
-            arena,
-        }
-    }
-}
-
-struct File {
+#[derive(Debug)]
+struct Entry {
     name: String,
-    parent: usize,
     size: usize,
+    address: Inode,
+    entry_type: Type,
 }
 
-impl File {
-    fn new(name: String, parent: usize, size: usize) -> Self {
-        File { name, parent, size }
-    }
-}
-
-impl Entry for File {
-    fn parent(&self) -> usize {
-        self.parent
-    }
-
-    fn name(&self) -> &str {
-        &self.name
-    }
-
-    fn add_child(&mut self, _: String, _: usize) {
-        // do nothing
-    }
-
-    fn size(&self) -> usize {
-        self.size
-    }
-}
-
-impl Entry for Dir {
-    fn parent(&self) -> usize {
-        self.parent
-    }
-
-    fn name(&self) -> &str {
-        &self.name
-    }
-
-    fn add_child(&mut self, name: String, size: usize) {
-        self.contents.insert(name, size);
-    }
-
-    fn size(&self) -> usize {
-        let mut result = 0;
-        for index in self.contents.values() {
-            let item = &self.arena.borrow()[*index];
-            let size = item.size();
-            result += size;
+impl Entry {
+    fn new_dir(name: &str, address: Inode) -> Self {
+        Entry {
+            name: name.to_owned(),
+            size: 0,
+            address,
+            entry_type: Type::Dir,
         }
-        println!("size of {} is {}", self.name, result);
-        result
     }
-}
 
-impl Debug for Dir {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "dir name={}, parent={}, contents={:?}",
-            self.name, self.parent, self.contents
-        )
+    fn new_file(name: &str, address: Inode, size: usize) -> Self {
+        Entry {
+            name: name.to_owned(),
+            size,
+            address,
+            entry_type: Type::File,
+        }
     }
-}
-
-impl Debug for File {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "dir name={}, parent={}, size={}",
-            self.name, self.parent, self.size
-        )
-    }
-}
-
-trait Entry: std::fmt::Debug {
-    fn parent(&self) -> usize;
-
-    fn name(&self) -> &str;
-
-    fn add_child(&mut self, name: String, index: usize);
-
-    fn size(&self) -> usize;
 }
 
 struct FileSystem {
     arena: Arena,
-    cwd_index: usize,
-    by_name: HashMap<String, usize>,
+    cwd: Inode,
+    child_to_parent: HashMap<Inode, Inode>,
 }
 
 impl FileSystem {
     fn new() -> Self {
-        let arena = Rc::new(RefCell::new(Vec::new()));
-        let root = Box::new(Dir::new("/".to_owned(), 0, Rc::clone(&arena)));
-        arena.borrow_mut().push(root);
-        let mut by_name = HashMap::new();
-        by_name.insert("/".to_owned(), 0);
+        let mut arena: Arena = Vec::new();
+        let root = Entry::new_dir("/", 0);
+        arena.push(root);
 
         FileSystem {
-            cwd_index: 0,
+            cwd: 0,
             arena,
-            by_name,
+            child_to_parent: HashMap::new(),
         }
-    }
-
-    fn pwd(&self, dir: &str) -> String {
-        let cwd = &self.arena.borrow()[self.cwd_index];
-        let mut result = cwd.name().to_owned();
-	if result != "/"{
-            result.push('/');
-	}
-        result.push_str(dir);
-        result
     }
 
     fn cd(&mut self, dir: &str) {
         if dir == ".." {
-            let cwd = &self.arena.borrow()[self.cwd_index];
-            self.cwd_index = cwd.parent();
+            self.cwd = *self.child_to_parent.get(&self.cwd).unwrap();
             return;
         }
-        let pwd = self.pwd(dir);
-        if let Some(asd) = self.by_name.get(&pwd) {
-            self.cwd_index = *asd;
+        let children = self.children(self.cwd);
+        if children.contains_key(dir) {
+            let inode = children.get(dir).unwrap().address;
+            self.cwd = inode;
         } else {
-            let dir = Dir::new(pwd, self.cwd_index, Rc::clone(&self.arena));
-            self.arena.borrow_mut().push(Box::new(dir));
-            self.cwd_index = self.arena.borrow().len() - 1;
+            self.cwd = self.mkdir(dir);
         }
-	println!("cd {}, new cwd: {}", dir, self.arena.borrow()[self.cwd_index].name());
     }
 
     fn track_child(&mut self, line: &str) {
         let mut tokens = line.split(' ');
         let size = tokens.next().unwrap();
         let name = tokens.next().unwrap();
-        let pwd = self.pwd(name);
-        let index = self.create_child(name, size);
-        let mut binding = self.arena.borrow_mut();
-        let cwd = binding.get_mut(self.cwd_index).unwrap();
-        println!("add {} as child to {}", pwd, cwd.name());
-        (*cwd).add_child(pwd, index);
+        self.create_child(name, size);
     }
 
-    fn create_child(&mut self, name: &str, size: &str) -> usize {
-        println!("create child {} {}", name, size);
-        let pwd = self.pwd(name);
-        if size == "dir" {
-            if self.by_name.contains_key(&pwd) {
-                *self.by_name.get(&pwd).unwrap()
+    fn children(&self, dir: Inode) -> HashMap<String, &Entry> {
+        self.arena
+            .iter()
+            .filter(|x| self.child_to_parent.get(&x.address) == Some(&dir))
+            .map(|e| (e.name.to_owned(), e))
+            .collect()
+    }
+
+    fn create_child(&mut self, name: &str, size_or_dir_flag: &str) -> Inode {
+        let children = self.children(self.cwd);
+        if size_or_dir_flag == "dir" {
+            if children.contains_key(name) {
+                return children.get(name).unwrap().address;
             } else {
-                self.mkdir(&pwd)
+                self.mkdir(name)
             }
         } else {
+            if children.contains_key(name) {
+                return children.get(name).unwrap().address;
+            }
             self.touch(
-                &pwd,
-                self.cwd_index,
-                size.parse()
-                    .unwrap_or_else(|_| panic!("create_child: failed to parse {}", size)),
+                name,
+                size_or_dir_flag.parse().unwrap_or_else(|_| {
+                    panic!("create_child: failed to parse {}", size_or_dir_flag)
+                }),
             )
         }
     }
 
-    fn touch(&mut self, pwd: &str, cwd: usize, size: usize) -> usize {
-	println!("touch {} pwd", pwd);
-        self.arena
-            .borrow_mut()
-            .push(Box::new(File::new(pwd.to_owned(), cwd, size)));
-        self.arena.borrow().len() - 1
+    fn touch(&mut self, name: &str, size: usize) -> Inode {
+        let result = self.arena.len();
+        self.arena.push(Entry::new_file(name, result, size));
+        self.child_to_parent.insert(result, self.cwd);
+        result
     }
 
-    fn mkdir(&mut self, pwd: &str) -> usize {
-	println!("mkdir {}", pwd);
-        let item = Box::new(Dir::new(
-            pwd.to_owned(),
-            self.cwd_index,
-            Rc::clone(&self.arena),
-        ));
-        self.arena.borrow_mut().push(item);
-        self.arena.borrow().len() - 1
+    fn mkdir(&mut self, name: &str) -> Inode {
+        let result = self.arena.len();
+        self.arena.push(Entry::new_dir(name, result));
+        self.child_to_parent.insert(result, self.cwd);
+        result
     }
 
-    // TODO is directory
+    fn du(&self, inode: Inode) -> usize {
+        let entry = &self.arena[inode];
+        let result = match entry.entry_type {
+            Type::File => entry.size,
+            Type::Dir => {
+                let children = self.children(inode);
+                let mut result = 0;
+                for child in children.values() {
+                    let size = self.du(child.address);
+                    result += size;
+                }
+                result
+            }
+        };
+        result
+    }
+
     fn delete_candidates(&self) -> usize {
-        println!("arena: {:?}", self.arena);
         let mut result = 0;
-        for x in self.arena.borrow().iter() {
-            if x.size() <= 100000 {
-                result += x.size();
+        for entry in self.arena.iter() {
+            let du = self.du(entry.address);
+            if du <= 100000 && entry.entry_type == Type::Dir {
+                result += du;
             }
         }
         result
@@ -229,22 +158,20 @@ impl FileSystem {
     fn traverse(&mut self, input: &mut VecDeque<&str>) {
         while !input.is_empty() {
             let line = input.pop_front().unwrap();
-            println!("process {} ", line);
             if line.starts_with('$') {
                 let mut tokens = line.split(' ');
                 let cmd = tokens.nth(1).unwrap();
                 if cmd == "cd" {
-                    let target_dir = tokens.nth(0).unwrap();
+                    let target_dir = tokens.next().unwrap();
                     self.cd(target_dir);
                 } else if cmd == "ls" {
                     while !input.is_empty() {
                         let head = input.pop_front();
                         if let Some(fr) = head {
-			    println!("ls entry: {}", fr);
                             if !fr.starts_with('$') {
                                 self.track_child(fr);
                             } else {
-				input.push_front(fr);
+                                input.push_front(fr);
                                 break;
                             }
                         }
@@ -264,7 +191,7 @@ mod tests {
     #[test]
     fn test_solve() {
         let input = vec![
-	    "cd /",
+            "cd /",
             "$ ls",
             "dir a",
             "1484854 b.txt",

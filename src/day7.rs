@@ -139,15 +139,17 @@ impl FileSystem {
     }
 
     pub fn part2(&self) -> usize {
+        let total = 70000000;
         let required = 30000000;
 
-        let taken = self.du(0);
-        let need_to_free = taken - required;
+	let used = self.du(0);
+        let unused = total - used;
+        let need_to_free = required - unused;
 
         self.arena
             .iter()
-            .filter(|item| item.entry_type == Type::Dir)
-            .map(|item| self.du(item.address))
+            .filter(|entry| entry.entry_type == Type::Dir)
+            .map(|entry| self.du(entry.address))
             .filter(|size| size >= &need_to_free)
             .min()
             .unwrap()
@@ -260,41 +262,11 @@ mod tests {
     }
 
     #[test]
-    fn test_part2() {
-        let input = vec![
-            "cd /",
-            "$ ls",
-            "dir a",
-            "1484854 b.txt",
-            "8504156 c.dat",
-            "dir d",
-            "$ cd a",
-            "$ ls",
-            "dir e",
-            "29116 f",
-            "2557 g",
-            "62596 h.lst",
-            "$ cd e",
-            "$ ls",
-            "584 i",
-            "$ cd ..",
-            "$ cd ..",
-            "$ cd d",
-            "$ ls",
-            "4060174 j",
-            "8033020 d.log",
-            "5626152 d.ext",
-            "7214296 k",
-        ];
-        assert_eq!(part2(input.into()), 24933642);
-    }
-
-    #[test]
     fn test_part2_with_real_data() {
         let data = util::read_real_data("day7");
         let data = data.iter().map(|line| line.as_str()).collect();
 
-        assert_eq!(part2(data), 14381780);
+        assert_eq!(part2(data), 2940614);
     }
 
     #[test]

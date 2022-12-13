@@ -11,6 +11,13 @@ pub fn solve(mut input: VecDeque<&str>) -> usize {
     interpreter.estimate_cleanup_space()
 }
 
+pub fn part2(mut input: VecDeque<&str>) -> usize {
+    let fs = FileSystem::new();
+    let mut interpreter = Interpreter { fs };
+    interpreter.traverse(&mut input);
+    interpreter.part2()
+}
+
 #[derive(PartialEq, Debug)]
 enum Type {
     File,
@@ -130,6 +137,21 @@ impl FileSystem {
         }
         result
     }
+
+    pub fn part2(&self) -> usize {
+        let required = 30000000;
+
+        let taken = self.du(0);
+        let need_to_free = taken - required;
+
+        self.arena
+            .iter()
+            .filter(|item| item.entry_type == Type::Dir)
+            .map(|item| self.du(item.address))
+            .filter(|size| size >= &need_to_free)
+            .min()
+            .unwrap()
+    }
 }
 
 struct Interpreter {
@@ -196,13 +218,17 @@ impl Interpreter {
     fn estimate_cleanup_space(&self) -> usize {
         self.fs.estimate_cleanup_space()
     }
+
+    fn part2(&self) -> usize {
+        self.fs.part2()
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::util;
-    
+
     #[test]
     fn test_solve() {
         let input = vec![
@@ -234,10 +260,48 @@ mod tests {
     }
 
     #[test]
-    fn test_with_real_data(){
-	let data = util::read_real_data("day7");
-	let data = data.iter().map(|line| line.as_str()).collect();
+    fn test_part2() {
+        let input = vec![
+            "cd /",
+            "$ ls",
+            "dir a",
+            "1484854 b.txt",
+            "8504156 c.dat",
+            "dir d",
+            "$ cd a",
+            "$ ls",
+            "dir e",
+            "29116 f",
+            "2557 g",
+            "62596 h.lst",
+            "$ cd e",
+            "$ ls",
+            "584 i",
+            "$ cd ..",
+            "$ cd ..",
+            "$ cd d",
+            "$ ls",
+            "4060174 j",
+            "8033020 d.log",
+            "5626152 d.ext",
+            "7214296 k",
+        ];
+        assert_eq!(part2(input.into()), 24933642);
+    }
 
-	assert_eq!(solve(data), 1427048);
+    #[test]
+    fn test_part2_with_real_data() {
+        let data = util::read_real_data("day7");
+        let data = data.iter().map(|line| line.as_str()).collect();
+
+        assert_eq!(part2(data), 14381780);
+    }
+
+    #[test]
+    fn test_with_real_data() {
+        let data = util::read_real_data("day7");
+        let data = data.iter().map(|line| line.as_str()).collect();
+
+        assert_eq!(solve(data), 1427048);
     }
 }

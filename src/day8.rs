@@ -1,4 +1,4 @@
-fn solve(input: &Vec<&str>) -> u32 {
+npub fn solve(input: &Vec<&str>) -> u32 {
     let forest: Vec<Vec<u32>> = input.iter().map(|line| parse_line(line)).collect();
 
     let height = forest.len();
@@ -42,7 +42,7 @@ fn parse_line(line: &str) -> Vec<u32> {
     line.chars().map(|c| c as u32 - 48).collect()
 }
 
-fn part2(input: &Vec<&str>) -> u32 {
+pub fn part2(input: &Vec<&str>) -> u32 {
     let forest: Vec<Vec<u32>> = input.iter().map(|line| parse_line(line)).collect();
 
     let height = forest.len();
@@ -70,12 +70,18 @@ fn score((row, col): (usize, usize), forest: &Vec<Vec<u32>>) -> u32 {
 }
 
 fn score_line(line: &Vec<u32>) -> u32 {
+    if line.len() ==1 {
+	return 1;
+    }
+    
     let mut result = 1;
-    for i in 1..line.len() - 1 {
-        result += 1;
-        if line[i] >= line[i - 1] {
-            break;
-        }
+    for i in 0..line.len() - 1 {
+	let h = if i == line.len()-1 {999} else {line[i]};
+        if line[i] < line[i +1] {
+	    result +=1;
+        }else{
+	    return result;
+	}
     }
     result
 }

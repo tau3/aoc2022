@@ -20,10 +20,10 @@ fn move_tail(head: (i32, i32), tail: (i32, i32)) -> (i32, i32) {
         return (xt + (xh - xt) / (xh - xt).abs(), yt);
     }
 
-    return (
+    (
         xt + (xh - xt) / (xh - xt).abs(),
         yt + (yh - yt) / (yh - yt).abs(),
-    );
+    )
 }
 
 fn is_adjacent(head: (i32, i32), tail: (i32, i32)) -> bool {
@@ -68,6 +68,20 @@ pub fn solve(input: &Vec<&str>) -> usize {
     result.len()
 }
 
+pub fn part2(input: &Vec<&str>) -> usize {
+    let moves = parse_head_moves(input);
+    let mut rope = [(0, 0); 10];
+    let mut result = HashSet::new();
+    for move_ in moves.chars() {
+        rope[0] = move_head(rope[0], move_);
+        for i in 1..rope.len() {
+            rope[i] = move_tail(rope[i - 1], rope[i]);
+        }
+        result.insert(rope[9]);
+    }
+    result.len()
+}
+
 fn move_head((x, y): (i32, i32), move_: char) -> (i32, i32) {
     match move_ {
         'R' => (x + 1, y),
@@ -81,6 +95,7 @@ fn move_head((x, y): (i32, i32), move_: char) -> (i32, i32) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::util;
 
     #[test]
     fn test_move_tail() {
@@ -102,5 +117,27 @@ mod tests {
     fn test_solve() {
         let input = vec!["R 4", "U 4", "L 3", "D 1", "R 4", "D 1", "L 5", "R 2"];
         assert_eq!(solve(&input), 13);
+    }
+
+    #[test]
+    fn test_with_real_data() {
+        let input = util::read_real_data("day9");
+        let input = input.iter().map(|line| line.as_str()).collect();
+
+        assert_eq!(solve(&input), 6486);
+    }
+
+    #[test]
+    fn test_part2() {
+        let input = vec!["R 5", "U 8", "L 8", "D 3", "R 17", "D 10", "L 25", "U 20"];
+        assert_eq!(part2(&input), 36);
+    }
+
+    #[test]
+    fn test_part2_with_real_data() {
+        let input = util::read_real_data("day9");
+        let input = input.iter().map(|line| line.as_str()).collect();
+
+        assert_eq!(part2(&input), 2678);
     }
 }

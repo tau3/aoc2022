@@ -39,7 +39,7 @@ mod tests {
         let input = util::read_real_data("day6");
         let input = &input[0];
 
-        assert_eq!(solve(&input, MARKER_SIZE), 1598);
+        assert_eq!(solve(input, MARKER_SIZE), 1598);
     }
 
     #[test]
@@ -56,6 +56,6 @@ mod tests {
         let input = util::read_real_data("day6");
         let input = &input[0];
 
-        assert_eq!(solve(&input, MESSAGE_SIZE), 2414);
+        assert_eq!(solve(input, MESSAGE_SIZE), 2414);
     }
 }

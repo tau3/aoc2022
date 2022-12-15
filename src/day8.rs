@@ -1,4 +1,4 @@
-npub fn solve(input: &Vec<&str>) -> u32 {
+pub fn solve(input: &[&str]) -> u32 {
     let forest: Vec<Vec<u32>> = input.iter().map(|line| parse_line(line)).collect();
 
     let height = forest.len();
@@ -35,14 +35,14 @@ fn check((row, col): (usize, usize), forest: &Vec<Vec<u32>>) -> u32 {
             return 1;
         }
     }
-    return 0;
+    0
 }
 
 fn parse_line(line: &str) -> Vec<u32> {
     line.chars().map(|c| c as u32 - 48).collect()
 }
 
-pub fn part2(input: &Vec<&str>) -> u32 {
+pub fn part2(input: &[&str]) -> u32 {
     let forest: Vec<Vec<u32>> = input.iter().map(|line| parse_line(line)).collect();
 
     let height = forest.len();
@@ -50,9 +50,9 @@ pub fn part2(input: &Vec<&str>) -> u32 {
     let mut result = 0;
     for row in 0..height {
         for col in 0..width {
-            let mut score = score((row, col), &forest);
+            let score = score((row, col), &forest);
             if score > result {
-                score = result;
+                result = score;
             }
         }
     }
@@ -63,26 +63,42 @@ fn score((row, col): (usize, usize), forest: &Vec<Vec<u32>>) -> u32 {
     let height = forest.len();
     let width = forest[0].len();
 
+    if row == 0 || col == 0 || row == width - 1 || col == height - 1 {
+        return 0;
+    }
+
     let horizontal = &forest[row];
     let vertical: Vec<u32> = forest.iter().map(|line| line[col]).collect();
 
-    0
+    let up = vertical[0..row].iter().rev().copied().collect();
+    let down = vertical[row + 1..height].to_vec();
+    let left = horizontal[0..col].iter().rev().copied().collect();
+    let right = horizontal[col + 1..width].to_vec();
+
+    let tree = forest[row][col];
+
+    let score_up = score_line(&up, tree);
+    let score_down = score_line(&down, tree);
+    let score_left = score_line(&left, tree);
+    let score_right = score_line(&right, tree);
+
+    score_down * score_up * score_left * score_right
 }
 
-fn score_line(line: &Vec<u32>) -> u32 {
-    if line.len() ==1 {
-	return 1;
+fn score_line(line: &Vec<u32>, tree: u32) -> u32 {
+    if line.len() == 1 {
+        return 1;
     }
-    
+
     let mut result = 1;
     for i in 0..line.len() - 1 {
-	let h = if i == line.len()-1 {999} else {line[i]};
-        if line[i] < line[i +1] {
-	    result +=1;
-        }else{
-	    return result;
-	}
+        if line[i] <= line[i + 1] && line[i] < tree {
+            result += 1;
+        } else {
+            return result;
+        }
     }
+
     result
 }
 
@@ -93,10 +109,13 @@ mod tests {
 
     #[test]
     fn test_score_line() {
-        assert_eq!(score_line(&vec![3]), 1);
-        assert_eq!(score_line(&vec![5, 2]), 1);
-        assert_eq!(score_line(&vec![1, 2]), 2);
-        assert_eq!(score_line(&vec![3, 5, 3]), 2);
+        assert_eq!(score_line(&vec![3], 5), 1);
+        assert_eq!(score_line(&vec![3, 3], 5), 2);
+        assert_eq!(score_line(&vec![5, 2], 5), 1);
+        assert_eq!(score_line(&vec![1, 2], 5), 2);
+        assert_eq!(score_line(&vec![3, 5, 3], 5), 2);
+
+        assert_eq!(score_line(&vec![3, 5, 6], 3), 1);
     }
 
     #[test]
@@ -108,7 +127,7 @@ mod tests {
     #[test]
     fn test_with_real_data() {
         let input = util::read_real_data("day8");
-        let input = input.iter().map(|line| line.as_str()).collect();
+        let input: Vec<&str> = input.iter().map(|line| line.as_str()).collect();
         assert_eq!(solve(&input), 1832);
     }
 
@@ -118,10 +137,10 @@ mod tests {
         assert_eq!(part2(&input), 8);
     }
 
-    // #[test]
+    #[test]
     fn test_part2_with_real_data() {
         let input = util::read_real_data("day8");
-        let input = input.iter().map(|line| line.as_str()).collect();
-        assert_eq!(solve(&input), 1832);
+        let input: Vec<&str> = input.iter().map(|line| line.as_str()).collect();
+        assert_eq!(part2(&input), 192);
     }
 }

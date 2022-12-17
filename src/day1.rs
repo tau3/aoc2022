@@ -54,7 +54,6 @@ mod tests {
     #[test]
     fn test_with_real_data() {
         let (index, value) = day1(&read_real_data("day1"));
-        println!("index={}, value={}", index, value);
         assert_eq!((index, value), (137, 75622));
     }
 

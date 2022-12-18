@@ -37,7 +37,7 @@ impl Counter {
     }
 }
 
-pub fn solve(input: &Vec<String>) -> Counter {
+pub fn solve(input: &[String]) -> Counter {
     let mut counter = Counter::new();
     for line in input.iter() {
         if line == "noop" {
@@ -61,18 +61,16 @@ pub fn part2(counter: &Counter) {
         let line = vec!['.'; width];
         screen.push(line);
     }
-
-    for i in 0..240 {
-        let x = counter.get(i+1);
+    for i in 0..width * height {
+        let x = counter.get(i + 1);
         let (row, col) = (i / width, i % width);
         if x - 1 == col as i32 || x == col as i32 || x + 1 == col as i32 {
             screen[row][col] = '#';
         }
     }
-
-    for row in 0..height {
-        for col in 0..width {
-            print!("{}", screen[row][col]);
+    for line in screen.iter().take(height) {
+        for cell in line.iter().take(width) {
+            print!("{}", cell);
         }
         println!();
     }

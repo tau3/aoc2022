@@ -1,4 +1,5 @@
 use std::{cell::RefCell, collections::VecDeque, rc::Rc};
+use primitive_types::u32;
 
 struct Monkey {
     items: VecDeque<u32>,
@@ -11,8 +12,8 @@ struct Monkey {
 
 impl Monkey {
     fn parse(input: &Vec<&str>) -> Self {
-        let test_false_target = last_u32(input[5]) as usize;
-        let test_true_target = last_u32(input[4]) as usize;
+        let test_false_target = last_u32(input[5]).as_usize();
+        let test_true_target = last_u32(input[4]).as_usize();
         let operation = Operation::parse(input[2]);
         let test_delimiter = last_u32(input[3]);
 
@@ -27,7 +28,7 @@ impl Monkey {
             test_delimiter,
             test_true_target,
             test_false_target,
-            count: 0,
+            count: 0.into(),
         }
     }
 
@@ -36,12 +37,12 @@ impl Monkey {
     }
 
     fn update_worry(&mut self, worry: u32) -> u32 {
-        self.count += 1;
-        self.operation.apply(worry) / 3
+        self.count += 1.into();
+        self.operation.apply(worry)
     }
 
     fn receiver(&self, worry: u32) -> usize {
-        if worry % self.test_delimiter == 0 {
+        if worry % self.test_delimiter == 0.into() {
             self.test_true_target
         } else {
             self.test_false_target
@@ -71,14 +72,16 @@ impl Operation {
         match operation {
             "*" => return Operation::Mul(val),
             "+" => return Operation::Plus(val),
-            _ => panic!("unknown operaation {}", val),
+            _ => panic!("unknown operation {}", val),
         }
     }
 
     fn apply(&self, worry: u32) -> u32 {
         match self {
             Operation::Mul(x) => worry * x,
-            Operation::MulOld => worry * worry,
+            Operation::MulOld => {
+		println!("worry={}", worry);
+		worry * worry},
             Operation::Plus(x) => worry + x,
         }
     }
@@ -86,10 +89,11 @@ impl Operation {
 
 struct Monkeys {
     monkeys: Vec<Rc<RefCell<Monkey>>>,
+    cooldown: u32,
 }
 
 impl Monkeys {
-    fn parse_monkeys(input: &Vec<&str>) -> Self {
+    fn parse_monkeys(input: &Vec<&str>, cooldown: u32) -> Self {
         let input: Vec<&str> = input.iter().filter(|l| !l.is_empty()).map(|x| *x).collect();
         let mut monkeys = Vec::new();
         for i in 0..input.len() / 6 {
@@ -97,20 +101,15 @@ impl Monkeys {
             let monkey = Monkey::parse(&part);
             monkeys.push(Rc::new(RefCell::new(monkey)));
         }
-        Self { monkeys }
+        Self { monkeys, cooldown }
     }
 
     fn turn(&mut self) {
         for monkey in self.monkeys.iter() {
-	    // println!("Monkey _:");
             let mut monkey = monkey.borrow_mut();
             while let Some(worry) = monkey.items.pop_front() {
-		// println!("  Monkey inspects an item with a worry level of {}.", worry);
-                let worry = monkey.update_worry(worry);
-		// println("    Worry level is multiplied to {}.", worry);
+                let worry = monkey.update_worry(worry) / self.cooldown;
                 let receiver = monkey.receiver(worry);
-		// println!("    Monkeys gets bored with item. Worry level is divided by 3 to {}.", worry);
-		// println!("    Iter with worry level {} is thrown to monkey {}", worry, receiver);
                 self.monkeys[receiver].borrow_mut().take_item(worry);
             }
         }
@@ -123,9 +122,9 @@ impl Monkeys {
     }
 }
 
-pub fn solve(input: &Vec<&str>) -> u32 {
-    let mut monkeys = Monkeys::parse_monkeys(input);
-    for _ in 0..20 {
+pub fn solve(input: &Vec<&str>, rounds: u32, cooldown: u32) -> u32 {
+    let mut monkeys = Monkeys::parse_monkeys(input, cooldown);
+    for _ in 0..rounds {
         monkeys.turn();
     }
 
@@ -136,6 +135,40 @@ pub fn solve(input: &Vec<&str>) -> u32 {
 mod tests {
     use super::*;
     use crate::util;
+
+    #[test]
+    fn test_part2() {
+        let input = vec![
+            "Monkey 0:",
+            "  Starting items: 79, 98",
+            "  Operation: new = old * 19",
+            "  Test: divisible by 23",
+            "    If true: throw to monkey 2",
+            "    If false: throw to monkey 3",
+            "",
+            "Monkey 1:",
+            "  Starting items: 54, 65, 75, 74",
+            "  Operation: new = old + 6",
+            "  Test: divisible by 19",
+            "    If true: throw to monkey 2",
+            "    If false: throw to monkey 0",
+            "",
+            "Monkey 2:",
+            "  Starting items: 79, 60, 97",
+            "  Operation: new = old * old",
+            "  Test: divisible by 13",
+            "    If true: throw to monkey 1",
+            "    If false: throw to monkey 3",
+            "",
+            "Monkey 3:",
+            "  Starting items: 74",
+            "  Operation: new = old + 3",
+            "  Test: divisible by 17",
+            "    If true: throw to monkey 0",
+            "    If false: throw to monkey 1",
+        ];
+        assert_eq!(solve(&input, 10000, 1), 10605.into());
+    }
 
     #[test]
     fn test_solve() {
@@ -168,13 +201,20 @@ mod tests {
             "    If true: throw to monkey 0",
             "    If false: throw to monkey 1",
         ];
-        assert_eq!(solve(&input), 10605);
+        assert_eq!(solve(&input, 20, 3), 10605.into());
     }
 
     #[test]
     fn test_solve_with_real_data() {
         let data = util::read_real_data("day11");
-        let data = data.iter().map(|line|line.as_str()).collect();
-        assert_eq!(solve(&data), 54752);
+        let data = data.iter().map(|line| line.as_str()).collect();
+        assert_eq!(solve(&data, 20, 3), 54752.into());
     }
-}       
+
+    #[test]
+    fn test_solve_part2() {
+        let data = util::read_real_data("day11");
+        let data = data.iter().map(|line| line.as_str()).collect();
+        assert_eq!(solve(&data, 10000, 1), 54752.into());
+    }
+}

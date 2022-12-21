@@ -1,6 +1,6 @@
 // TODO memo
 
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 struct Grid {
     grid: Vec<Vec<char>>,
@@ -24,9 +24,14 @@ impl Grid {
         }
     }
 
-    fn shortest_path(&self, current: (usize, usize), prev: (usize, usize)) -> Option<u32> {
+    fn shortest_path(
+        &self,
+        current: (usize, usize),
+        prev: (usize, usize),
+        memo: &mut HashMap<(usize, usize), Option<u32>>,
+    ) -> Option<u32> {
         if current == self.start {
-	    println!("BINGO");
+            println!("BINGO");
             return Some(0);
         }
         let mut adjacent = self.adjacent(current);
@@ -36,14 +41,35 @@ impl Grid {
         }
 
         println!("point {:?}, adjacent {:?}", current, adjacent);
-        adjacent
-            .iter()
-            .filter(|(col, row)| self.can_jump((*col, *row), current))
-            .map(|(col, row)| self.shortest_path((*col, *row), current))
-            .filter(|x| x.is_some())
-            .map(|x| x.unwrap())
-            .min()
-            .map(|x| x + 1)
+        let mut cand = Vec::new();
+        // let mut m1 = memo.borrow_mut();
+        for point in adjacent {
+            if !self.can_jump(point, current) {
+                continue;
+            }
+            if let Some(dest) = self.get_dest(memo, point, current) {
+                cand.push(dest);
+            }
+        }
+        cand.iter().min().map(|x| x + 1)
+    }
+
+    fn get_dest(
+        &self,
+        memo: &mut HashMap<(usize, usize), Option<u32>>,
+        point: (usize, usize),
+        current: (usize, usize),
+    ) -> Option<u32> {
+        let mut maybe_path = None;
+        // let mut m1 = memo;
+        let maybe_dest = memo.get(&point);
+        if maybe_dest.is_none() {
+            maybe_path = self.shortest_path(point, current, memo);
+            memo.insert(point, maybe_path);
+        }
+
+        // m1.drop();
+        maybe_path
     }
 
     fn at(&self, (col, row): (usize, usize)) -> char {
@@ -53,7 +79,7 @@ impl Grid {
     fn can_jump(&self, from: (usize, usize), to: (usize, usize)) -> bool {
         let from = self.at(from);
         let to = self.at(to);
-	can_jump(from, to)
+        can_jump(from, to)
     }
 
     fn adjacent(&self, (col, row): (usize, usize)) -> Vec<(usize, usize)> {
@@ -89,7 +115,8 @@ fn can_jump(from: char, to: char) -> bool {
 
 pub fn solve(input: Vec<Vec<char>>) -> u32 {
     let grid = Grid::new(input);
-    grid.shortest_path(grid.end, grid.end).unwrap()
+    let mut x = HashMap::new();
+    grid.shortest_path(grid.end, grid.end, &mut x).unwrap()
 }
 
 fn find_start(input: &Vec<Vec<char>>) -> ((usize, usize), (usize, usize)) {

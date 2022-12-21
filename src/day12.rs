@@ -1,5 +1,7 @@
 // TODO memo
 
+use std::collections::HashMap;
+
 struct Grid {
     grid: Vec<Vec<char>>,
     width: usize,
@@ -22,18 +24,26 @@ impl Grid {
         }
     }
 
-    fn shortest_path(&self, target: (usize, usize)) -> u32 {
-        if target == self.start {
-            return 0;
+    fn shortest_path(&self, current: (usize, usize), prev: (usize, usize)) -> Option<u32> {
+        if current == self.start {
+	    println!("BINGO");
+            return Some(0);
         }
-        let adjacent = self.adjacent(target);
-        println!("point {:?}, adjacent {:?}", target, adjacent);
-        1 + adjacent
+        let mut adjacent = self.adjacent(current);
+        let position = adjacent.iter().position(|x| *x == prev);
+        if let Some(pos) = position {
+            adjacent.remove(pos);
+        }
+
+        println!("point {:?}, adjacent {:?}", current, adjacent);
+        adjacent
             .iter()
-            .filter(|(col, row)| self.can_jump((*col, *row), target))
-            .map(|(col, row)| self.shortest_path((*col, *row)))
+            .filter(|(col, row)| self.can_jump((*col, *row), current))
+            .map(|(col, row)| self.shortest_path((*col, *row), current))
+            .filter(|x| x.is_some())
+            .map(|x| x.unwrap())
             .min()
-            .unwrap()
+            .map(|x| x + 1)
     }
 
     fn at(&self, (col, row): (usize, usize)) -> char {
@@ -43,20 +53,15 @@ impl Grid {
     fn can_jump(&self, from: (usize, usize), to: (usize, usize)) -> bool {
         let from = self.at(from);
         let to = self.at(to);
-
-        add1_char(from) >= to
+	can_jump(from, to)
     }
 
     fn adjacent(&self, (col, row): (usize, usize)) -> Vec<(usize, usize)> {
         let (col, row) = (col as i32, row as i32);
         let result = vec![
-            (col - 1, row + 1),
             (col, row + 1),
-            (col + 1, row + 1),
             (col + 1, row),
-            (col + 1, row - 1),
             (col, row - 1),
-            (col - 1, row - 1),
             (col - 1, row),
         ];
 
@@ -74,9 +79,17 @@ fn add1_char(c: char) -> char {
     std::char::from_u32(c as u32 + 1).unwrap()
 }
 
+fn can_jump(from: char, to: char) -> bool {
+    if from == 'S' || to == 'E' || from == to {
+        return true;
+    };
+
+    add1_char(from) == to
+}
+
 pub fn solve(input: Vec<Vec<char>>) -> u32 {
     let grid = Grid::new(input);
-    grid.shortest_path(grid.end)
+    grid.shortest_path(grid.end, grid.end).unwrap()
 }
 
 fn find_start(input: &Vec<Vec<char>>) -> ((usize, usize), (usize, usize)) {
@@ -106,5 +119,10 @@ mod tests {
 
         let input = input.iter().map(|line| line.chars().collect()).collect();
         assert_eq!(solve(input), 31);
+    }
+
+    #[test]
+    fn test_can_jump() {
+        assert!(!can_jump('u', 'z'));
     }
 }

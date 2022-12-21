@@ -28,7 +28,7 @@ impl Grid {
         let mut memo = HashMap::new();
         let mut visited = HashSet::new();
         self.shortest_path(self.end, &mut memo, &mut visited)
-            .unwrap()
+            .expect("no path found")
     }
 
     fn shortest_path(
@@ -147,6 +147,7 @@ fn find_start(input: &[Vec<char>]) -> (Point, Point) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::util;
 
     #[test]
     fn test_solve() {
@@ -159,5 +160,12 @@ mod tests {
     #[test]
     fn test_can_jump() {
         assert!(!can_jump('u', 'z'));
+    }
+
+    #[test]
+    fn test_with_real_data() {
+        let input = util::read_real_data("day12");
+        let input = input.iter().map(|line| line.chars().collect()).collect();
+        assert_eq!(solve(input), 123);
     }
 }

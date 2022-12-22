@@ -1,24 +1,24 @@
 use std::{
-    cmp::{max, Ordering},
+    cmp::{min, Ordering},
     collections::VecDeque,
 };
 
 #[derive(Debug)]
 enum Packet {
     Number(u32),
-    Composite(Vec<Packet>),
+    List(Vec<Packet>),
 }
 
 impl Clone for Packet {
     fn clone(&self) -> Self {
         match self {
             Packet::Number(x) => Packet::Number(*x),
-            Packet::Composite(x) => {
-                let mut y = Vec::new();
-                for item in x {
-                    y.push(item.clone());
+            Packet::List(list) => {
+                let mut result = Vec::new();
+                for item in list {
+                    result.push(item.clone());
                 }
-                Packet::Composite(y)
+                Packet::List(result)
             }
         }
     }
@@ -28,13 +28,9 @@ impl PartialEq for Packet {
     fn eq(&self, other: &Packet) -> bool {
         match (self, other) {
             (Packet::Number(x), Packet::Number(y)) => x == y,
-            (x @ Packet::Number(_), y @ Packet::Composite(_)) => {
-                Packet::Composite(vec![x.clone()]) == *y
-            }
-            (y @ Packet::Composite(_), x @ Packet::Number(_)) => {
-                Packet::Composite(vec![x.clone()]) == *y
-            }
-            (Packet::Composite(x), Packet::Composite(y)) => {
+            (x @ Packet::Number(_), y @ Packet::List(_)) => Packet::List(vec![x.clone()]) == *y,
+            (y @ Packet::List(_), x @ Packet::Number(_)) => Packet::List(vec![x.clone()]) == *y,
+            (Packet::List(x), Packet::List(y)) => {
                 if x.len() != y.len() {
                     return false;
                 }
@@ -43,7 +39,7 @@ impl PartialEq for Packet {
                         return false;
                     }
                 }
-                return true;
+                true
             }
         }
     }
@@ -53,31 +49,23 @@ impl PartialOrd for Packet {
     fn partial_cmp(&self, rhs: &Packet) -> Option<Ordering> {
         match (self, rhs) {
             (Packet::Number(x), Packet::Number(y)) => Some(x.cmp(y)),
-            (x @ Packet::Number(_), y @ Packet::Composite(_)) => {
-                Packet::Composite(vec![x.clone()]).partial_cmp(y)
+            (x @ Packet::Number(_), y @ Packet::List(_)) => {
+                Packet::List(vec![x.clone()]).partial_cmp(y)
             }
-            (y @ Packet::Composite(_), x @ Packet::Number(_)) => {
-                y.partial_cmp(&Packet::Composite(vec![x.clone()]))
+            (y @ Packet::List(_), x @ Packet::Number(_)) => {
+                y.partial_cmp(&Packet::List(vec![x.clone()]))
             }
-            (Packet::Composite(x), Packet::Composite(y)) => {
-                println!("cmp {:?} and {:?}", x, y);
-
-                let l = max(x.len(), y.len());
-                for i in 0..l {
-                    let c = x[i].partial_cmp(&y[i]);
-                    if c != Some(Ordering::Equal) {
-                        return c;
+            (Packet::List(x), Packet::List(y)) => {
+                let min_length = min(x.len(), y.len());
+                for i in 0..min_length {
+                    let comparison = x[i].partial_cmp(&y[i]);
+                    if comparison != Some(Ordering::Equal) {
+                        return comparison;
                     }
                 }
                 Some(x.len().cmp(&y.len()))
             }
         }
-    }
-}
-
-impl From<&str> for Packet {
-    fn from(input: &str) -> Self {
-        Packet::from_str(input)
     }
 }
 
@@ -89,7 +77,6 @@ impl Packet {
     }
 
     fn from_deque(input: &mut VecDeque<char>) -> Vec<Packet> {
-        // println!("from deque {:?}", input.iter().collect::<String>());
         let mut result = Vec::new();
         while !input.is_empty() {
             result.push(Self::pop_packet(input));
@@ -98,41 +85,42 @@ impl Packet {
     }
 
     fn pop_packet(input: &mut VecDeque<char>) -> Packet {
-        // println!("pop_packet {:?}", input.iter().collect::<String>());
         let token = input.pop_front().unwrap();
         if token == '[' {
-            let mut i = 1;
-            let mut temp = VecDeque::new();
-            while !input.is_empty() {
-                let c = input.pop_front().unwrap();
-                if c == '[' {
-                    i += 1;
-                    temp.push_back(c);
-                } else if c == ']' {
-                    i -= 1;
-                    if i == 0 {
-                        break;
-                    }
-                    temp.push_back(c);
-                } else {
-                    temp.push_back(c);
-                }
-            }
-            input.pop_front();
-            // println!("deep from {:?}", temp.iter().collect::<String>());
-            let res = Packet::Composite(Packet::from_deque(&mut temp));
-            res
+            Packet::pop_list(input)
         } else if token.is_numeric() {
             input.push_front(token);
             let n = Packet::pop_number(input);
-            return Packet::Number(n);
+            Packet::Number(n)
         } else {
             panic!("unexpected token '{}'", token);
         }
     }
 
+    fn pop_list(input: &mut VecDeque<char>) -> Packet {
+        let mut i = 1;
+        let mut temp = VecDeque::new();
+        while !input.is_empty() {
+            let c = input.pop_front().unwrap();
+            if c == '[' {
+                i += 1;
+                temp.push_back(c);
+            } else if c == ']' {
+                i -= 1;
+                if i == 0 {
+                    break;
+                }
+                temp.push_back(c);
+            } else {
+                temp.push_back(c);
+            }
+        }
+
+        input.pop_front();
+        Packet::List(Packet::from_deque(&mut temp))
+    }
+
     fn pop_number(input: &mut VecDeque<char>) -> u32 {
-        // println!("pop_number {:?}", input.iter().collect::<String>());
         let mut number = String::from("");
         while !input.is_empty() {
             let c = input.pop_front().unwrap();
@@ -146,15 +134,30 @@ impl Packet {
     }
 }
 
+pub fn solve(input: &Vec<&str>) -> usize {
+    let mut result = 0;
+
+    let block_count = (input.len() + 1) / 3;
+    for i in 0..block_count {
+        let left = Packet::from_str(input[i * 3]);
+        let right = Packet::from_str(input[i * 3 + 1]);
+        if left < right {
+            result += i + 1;
+        }
+    }
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::util;
 
     #[test]
     fn test_parse_simple_list() {
         assert_eq!(
             Packet::from_str("[1,1,3,1,1]"),
-            Packet::Composite(vec![
+            Packet::List(vec![
                 Packet::Number(1),
                 Packet::Number(1),
                 Packet::Number(3),
@@ -168,9 +171,9 @@ mod tests {
     fn test_parse_list_of_lists() {
         assert_eq!(
             Packet::from_str("[[1],[2,3,4]]"),
-            Packet::Composite(vec![
-                Packet::Composite(vec![Packet::Number(1)]),
-                Packet::Composite(vec![
+            Packet::List(vec![
+                Packet::List(vec![Packet::Number(1)]),
+                Packet::List(vec![
                     Packet::Number(2),
                     Packet::Number(3),
                     Packet::Number(4)
@@ -183,8 +186,8 @@ mod tests {
     fn test_parse_composite() {
         assert_eq!(
             Packet::from_str("[[1],4]"),
-            Packet::Composite(vec![
-                Packet::Composite(vec![Packet::Number(1)]),
+            Packet::List(vec![
+                Packet::List(vec![Packet::Number(1)]),
                 Packet::Number(4)
             ])
         );
@@ -192,14 +195,14 @@ mod tests {
 
     #[test]
     fn test_parse_empty() {
-        assert_eq!(Packet::from_str("[]"), Packet::Composite(vec![]));
+        assert_eq!(Packet::from_str("[]"), Packet::List(vec![]));
     }
 
     #[test]
     fn test_parse_composite_empty() {
         assert_eq!(
             Packet::from_str("[[[]]]"),
-            Packet::Composite(vec![Packet::Composite(vec![Packet::Composite(vec![])])])
+            Packet::List(vec![Packet::List(vec![Packet::List(vec![])])])
         );
     }
 
@@ -207,15 +210,15 @@ mod tests {
     fn test_parse_hierarchy() {
         assert_eq!(
             Packet::from_str("[1,[2,[3,[4,[5,6,7]]]],8,9]"),
-            Packet::Composite(vec![
+            Packet::List(vec![
                 Packet::Number(1),
-                Packet::Composite(vec![
+                Packet::List(vec![
                     Packet::Number(2),
-                    Packet::Composite(vec![
+                    Packet::List(vec![
                         Packet::Number(3),
-                        Packet::Composite(vec![
+                        Packet::List(vec![
                             Packet::Number(4),
-                            Packet::Composite(vec![
+                            Packet::List(vec![
                                 Packet::Number(5),
                                 Packet::Number(6),
                                 Packet::Number(7)
@@ -262,5 +265,43 @@ mod tests {
         let left = Packet::from_str("[1,[2,[3,[4,[5,6,7]]]],8,9]");
         let right = Packet::from_str("[1,[2,[3,[4,[5,6,0]]]],8,9]");
         assert!(left > right);
+    }
+
+    #[test]
+    fn test_solve() {
+        let input = vec![
+            "[1,1,3,1,1]",
+            "[1,1,5,1,1]",
+            "",
+            "[[1],[2,3,4]]",
+            "[[1],4]",
+            "",
+            "[9]",
+            "[[8,7,6]]",
+            "",
+            "[[4,4],4,4]",
+            "[[4,4],4,4,4]",
+            "",
+            "[7,7,7,7]",
+            "[7,7,7]",
+            "",
+            "[]",
+            "[3]",
+            "",
+            "[[[]]]",
+            "[[]]",
+            "",
+            "[1,[2,[3,[4,[5,6,7]]]],8,9]",
+            "[1,[2,[3,[4,[5,6,0]]]],8,9]",
+        ];
+
+        assert_eq!(solve(&input), 13);
+    }
+
+    #[test]
+    fn test_with_real_data() {
+        let input = util::read_real_data("day13");
+        let input = input.iter().map(|line| line.as_str()).collect();
+        assert_eq!(solve(&input), 5808);
     }
 }

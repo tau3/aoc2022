@@ -47,8 +47,8 @@ impl Grid {
             if !self.can_jump(point, current) {
                 continue;
             }
-            if let Some(dest) = self.get_dest(memo, visited, point) {
-                candidates.push(dest);
+            if let Some(path_length) = self.calc_shortest(memo, visited, point) {
+                candidates.push(path_length);
             }
         }
         candidates.iter().min().map(|result| result + 1)
@@ -63,7 +63,7 @@ impl Grid {
             .collect()
     }
 
-    fn get_dest(
+    fn calc_shortest(
         &self,
         memo: &mut HashMap<Point, Option<u32>>,
         visited: &mut HashSet<Point>,

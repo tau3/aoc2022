@@ -56,6 +56,7 @@ impl Packet {
     }
 
     fn from_deque(input: &mut VecDeque<char>) -> Vec<Packet> {
+        println!("from deque {:?}", input.iter().collect::<String>());
         let mut result = Vec::new();
         while !input.is_empty() {
             result.push(Self::pop_packet(input));
@@ -64,20 +65,40 @@ impl Packet {
     }
 
     fn pop_packet(input: &mut VecDeque<char>) -> Packet {
-        println!("parse {:?}", input);
+        println!("pop_packet {:?}", input.iter().collect::<String>());
         let token = input.pop_front().unwrap();
         if token == '[' {
+            let mut i = 1;
             let mut temp = VecDeque::new();
             while !input.is_empty() {
-                let c = input.pop_back().unwrap();
-                if c != ']' {
+                let c = input.pop_front().unwrap();
+                if c == '[' {
+                    i += 1;
+                    temp.push_back(c);
+                } else if c == ']' {
+                    i -= 1;
+                    if i == 0 {
+                        break;
+                    }
                     temp.push_back(c);
                 } else {
-                    break;
+                    temp.push_back(c);
                 }
             }
-            let res = Packet::Composite(Packet::from_deque(input));
-            input.extend(temp);
+            input.pop_front();
+
+            // let mut temp = VecDeque::new();
+            // while !input.is_empty() {
+            //     let c = input.pop_back().unwrap();
+            //     if c != ']' {
+            //         temp.push_back(c);
+            //     } else {
+            //         break;
+            //     }
+            // }
+            println!("deep from {:?}", temp.iter().collect::<String>());
+            let res = Packet::Composite(Packet::from_deque(&mut temp));
+            // input.extend(temp);
             res
         } else if token.is_numeric() {
             input.push_front(token);
@@ -89,7 +110,7 @@ impl Packet {
     }
 
     fn pop_number(input: &mut VecDeque<char>) -> u32 {
-        println!("pop number {:?}", input);
+        println!("pop_number {:?}", input.iter().collect::<String>());
         let mut number = String::from("");
         while !input.is_empty() {
             let c = input.pop_front().unwrap();
@@ -132,6 +153,56 @@ mod tests {
                     Packet::Number(3),
                     Packet::Number(4)
                 ])
+            ])
+        );
+    }
+
+    #[test]
+    fn test_parse_composite() {
+        assert_eq!(
+            Packet::from_str("[[1],4]"),
+            Packet::Composite(vec![
+                Packet::Composite(vec![Packet::Number(1)]),
+                Packet::Number(4)
+            ])
+        );
+    }
+
+    #[test]
+    fn test_parse_empty() {
+        assert_eq!(Packet::from_str("[]"), Packet::Composite(vec![]));
+    }
+
+    #[test]
+    fn test_parse_composite_empty() {
+        assert_eq!(
+            Packet::from_str("[[[]]]"),
+            Packet::Composite(vec![Packet::Composite(vec![Packet::Composite(vec![])])])
+        );
+    }
+
+    #[test]
+    fn test_parse_hierarchy() {
+        assert_eq!(
+            Packet::from_str("[1,[2,[3,[4,[5,6,7]]]],8,9]"),
+            Packet::Composite(vec![
+                Packet::Number(1),
+                Packet::Composite(vec![
+                    Packet::Number(2),
+                    Packet::Composite(vec![
+                        Packet::Number(3),
+                        Packet::Composite(vec![
+                            Packet::Number(4),
+                            Packet::Composite(vec![
+                                Packet::Number(5),
+                                Packet::Number(6),
+                                Packet::Number(7)
+                            ])
+                        ])
+                    ])
+                ]),
+		Packet::Number(8),
+		Packet::Number(9)
             ])
         );
     }

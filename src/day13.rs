@@ -69,6 +69,14 @@ impl PartialOrd for Packet {
     }
 }
 
+impl Eq for Packet {}
+
+impl Ord for Packet {
+    fn cmp(&self, rhs: &Packet) -> Ordering {
+        self.partial_cmp(rhs).unwrap()
+    }
+}
+
 impl Packet {
     fn from_str(input: &str) -> Self {
         let input: Vec<char> = input.chars().collect();
@@ -146,6 +154,26 @@ pub fn solve(input: &Vec<&str>) -> usize {
         }
     }
     result
+}
+
+pub fn part2(input: &[&str]) -> usize {
+    let mut packets: Vec<Packet> = input
+        .iter()
+        .filter(|line| !line.is_empty())
+        .map(|line| Packet::from_str(line))
+        .collect();
+
+    let two = Packet::List(vec![Packet::List(vec![Packet::Number(2)])]);
+    let six = Packet::List(vec![Packet::List(vec![Packet::Number(6)])]);
+
+    packets.push(six.clone());
+    packets.push(two.clone());
+
+    packets.sort();
+
+    let six_pos = 1 + packets.iter().position(|x| *x == six).unwrap();
+    let two_pos = 1 + packets.iter().position(|x| *x == two).unwrap();
+    six_pos * two_pos
 }
 
 #[cfg(test)]
@@ -303,5 +331,43 @@ mod tests {
         let input = util::read_real_data("day13");
         let input = input.iter().map(|line| line.as_str()).collect();
         assert_eq!(solve(&input), 5808);
+    }
+
+    #[test]
+    fn test_part2() {
+        let input = vec![
+            "[1,1,3,1,1]",
+            "[1,1,5,1,1]",
+            "",
+            "[[1],[2,3,4]]",
+            "[[1],4]",
+            "",
+            "[9]",
+            "[[8,7,6]]",
+            "",
+            "[[4,4],4,4]",
+            "[[4,4],4,4,4]",
+            "",
+            "[7,7,7,7]",
+            "[7,7,7]",
+            "",
+            "[]",
+            "[3]",
+            "",
+            "[[[]]]",
+            "[[]]",
+            "",
+            "[1,[2,[3,[4,[5,6,7]]]],8,9]",
+            "[1,[2,[3,[4,[5,6,0]]]],8,9]",
+        ];
+
+        assert_eq!(part2(&input), 140);
+    }
+
+    #[test]
+    fn test_part2_with_real_data() {
+        let input = util::read_real_data("day13");
+        let input: Vec<&str> = input.iter().map(|line| line.as_str()).collect();
+        assert_eq!(part2(&input), 22713);
     }
 }

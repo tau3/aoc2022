@@ -52,37 +52,40 @@ impl Packet {
     fn from_str(input: &str) -> Self {
         let input: Vec<char> = input.chars().collect();
         let mut input: VecDeque<char> = input.iter().copied().collect();
-        Packet::from(&mut input)
+        Packet::pop_packet(&mut input)
     }
-    fn from(input: &mut VecDeque<char>) -> Vec<Packet> {
-        println!("parse {:?}", input);
-        let mut result: Vec<Packet> = Vec::new();
-        while !input.is_empty() {
-            let token = input.pop_front().unwrap();
-            if token == '[' {
-                let mut temp = VecDeque::new();
-                while !input.is_empty() {
-                    let c = input.pop_back().unwrap();
-                    if c != ']' {
-                        temp.push_back(c);
-                    } else {
-                        break;
-                    }
-                }
-                result.push(Packet::Composite(Packet::from(input)));
-                result.extend(Packet::from(&mut temp));
-            } else if token.is_numeric() {
-                input.push_front(token);
-                let n = Packet::pop_number(input);
-                result.push(Packet::Number(n));
-            } else if token == ',' {
-                // input.pop_front();
-            } else {
-                panic!("unexpected token '{}'", token);
-            }
-        }
 
+    fn from_deque(input: &mut VecDeque<char>) -> Vec<Packet> {
+        let mut result = Vec::new();
+        while !input.is_empty() {
+            result.push(Self::pop_packet(input));
+        }
         result
+    }
+
+    fn pop_packet(input: &mut VecDeque<char>) -> Packet {
+        println!("parse {:?}", input);
+        let token = input.pop_front().unwrap();
+        if token == '[' {
+            let mut temp = VecDeque::new();
+            while !input.is_empty() {
+                let c = input.pop_back().unwrap();
+                if c != ']' {
+                    temp.push_back(c);
+                } else {
+                    break;
+                }
+            }
+            let res = Packet::Composite(Packet::from_deque(input));
+            input.extend(temp);
+            res
+        } else if token.is_numeric() {
+            input.push_front(token);
+            let n = Packet::pop_number(input);
+            return Packet::Number(n);
+        } else {
+            panic!("unexpected token '{}'", token);
+        }
     }
 
     fn pop_number(input: &mut VecDeque<char>) -> u32 {
@@ -93,7 +96,6 @@ impl Packet {
             if c.is_numeric() {
                 number.push(c);
             } else {
-                input.push_front(c);
                 break;
             }
         }
@@ -115,6 +117,21 @@ mod tests {
                 Packet::Number(3),
                 Packet::Number(1),
                 Packet::Number(1)
+            ])
+        );
+    }
+
+    #[test]
+    fn test_parse_list_of_lists() {
+        assert_eq!(
+            Packet::from_str("[[1],[2,3,4]]"),
+            Packet::Composite(vec![
+                Packet::Composite(vec![Packet::Number(1)]),
+                Packet::Composite(vec![
+                    Packet::Number(2),
+                    Packet::Number(3),
+                    Packet::Number(4)
+                ])
             ])
         );
     }

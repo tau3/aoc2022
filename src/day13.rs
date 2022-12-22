@@ -1,4 +1,7 @@
-use std::collections::VecDeque;
+use std::{
+    cmp::{max, Ordering},
+    collections::VecDeque,
+};
 
 #[derive(Debug)]
 enum Packet {
@@ -46,7 +49,37 @@ impl PartialEq for Packet {
     }
 }
 
-// impl Eq for Packet{}
+impl PartialOrd for Packet {
+    fn partial_cmp(&self, rhs: &Packet) -> Option<Ordering> {
+        match (self, rhs) {
+            (Packet::Number(x), Packet::Number(y)) => Some(x.cmp(y)),
+            (x @ Packet::Number(_), y @ Packet::Composite(_)) => {
+                Packet::Composite(vec![x.clone()]).partial_cmp(y)
+            }
+            (y @ Packet::Composite(_), x @ Packet::Number(_)) => {
+                y.partial_cmp(&Packet::Composite(vec![x.clone()]))
+            }
+            (Packet::Composite(x), Packet::Composite(y)) => {
+                println!("cmp {:?} and {:?}", x, y);
+
+                let l = max(x.len(), y.len());
+                for i in 0..l {
+                    let c = x[i].partial_cmp(&y[i]);
+                    if c != Some(Ordering::Equal) {
+                        return c;
+                    }
+                }
+                Some(x.len().cmp(&y.len()))
+            }
+        }
+    }
+}
+
+impl From<&str> for Packet {
+    fn from(input: &str) -> Self {
+        Packet::from_str(input)
+    }
+}
 
 impl Packet {
     fn from_str(input: &str) -> Self {
@@ -56,7 +89,7 @@ impl Packet {
     }
 
     fn from_deque(input: &mut VecDeque<char>) -> Vec<Packet> {
-        println!("from deque {:?}", input.iter().collect::<String>());
+        // println!("from deque {:?}", input.iter().collect::<String>());
         let mut result = Vec::new();
         while !input.is_empty() {
             result.push(Self::pop_packet(input));
@@ -65,7 +98,7 @@ impl Packet {
     }
 
     fn pop_packet(input: &mut VecDeque<char>) -> Packet {
-        println!("pop_packet {:?}", input.iter().collect::<String>());
+        // println!("pop_packet {:?}", input.iter().collect::<String>());
         let token = input.pop_front().unwrap();
         if token == '[' {
             let mut i = 1;
@@ -86,19 +119,8 @@ impl Packet {
                 }
             }
             input.pop_front();
-
-            // let mut temp = VecDeque::new();
-            // while !input.is_empty() {
-            //     let c = input.pop_back().unwrap();
-            //     if c != ']' {
-            //         temp.push_back(c);
-            //     } else {
-            //         break;
-            //     }
-            // }
-            println!("deep from {:?}", temp.iter().collect::<String>());
+            // println!("deep from {:?}", temp.iter().collect::<String>());
             let res = Packet::Composite(Packet::from_deque(&mut temp));
-            // input.extend(temp);
             res
         } else if token.is_numeric() {
             input.push_front(token);
@@ -110,7 +132,7 @@ impl Packet {
     }
 
     fn pop_number(input: &mut VecDeque<char>) -> u32 {
-        println!("pop_number {:?}", input.iter().collect::<String>());
+        // println!("pop_number {:?}", input.iter().collect::<String>());
         let mut number = String::from("");
         while !input.is_empty() {
             let c = input.pop_front().unwrap();
@@ -201,9 +223,44 @@ mod tests {
                         ])
                     ])
                 ]),
-		Packet::Number(8),
-		Packet::Number(9)
+                Packet::Number(8),
+                Packet::Number(9)
             ])
         );
+    }
+
+    #[test]
+    fn test_cmp() {
+        let left = Packet::from_str("[1,1,3,1,1]");
+        let right = Packet::from_str("[1,1,5,1,1]");
+        assert!(left < right);
+
+        let left = Packet::from_str("[[1],[2,3,4]]");
+        let right = Packet::from_str("[[1],4]");
+        assert!(left < right);
+
+        let left = Packet::from_str("[9]");
+        let right = Packet::from_str("[[8,7,6]]");
+        assert!(left > right);
+
+        let left = Packet::from_str("[[4,4],4,4]");
+        let right = Packet::from_str("[[4,4],4,4,4]");
+        assert!(left < right);
+
+        let left = Packet::from_str("[7,7,7,7]");
+        let right = Packet::from_str("[7,7,7]");
+        assert!(left > right);
+
+        let left = Packet::from_str("[]");
+        let right = Packet::from_str("[3]");
+        assert!(left < right);
+
+        let left = Packet::from_str("[[[]]]");
+        let right = Packet::from_str("[[]]");
+        assert!(left > right);
+
+        let left = Packet::from_str("[1,[2,[3,[4,[5,6,7]]]],8,9]");
+        let right = Packet::from_str("[1,[2,[3,[4,[5,6,0]]]],8,9]");
+        assert!(left > right);
     }
 }

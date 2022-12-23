@@ -147,7 +147,7 @@ fn find_start(input: &[Vec<char>]) -> (Point, Point) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::util;
+    // use crate::util;
 
     #[test]
     fn test_solve() {
@@ -162,10 +162,10 @@ mod tests {
         assert!(!can_jump('u', 'z'));
     }
 
-    #[test]
-    fn test_with_real_data() {
-        let input = util::read_real_data("day12");
-        let input = input.iter().map(|line| line.chars().collect()).collect();
-        assert_eq!(solve(input), 123);
-    }
+    // #[test]
+    // fn test_with_real_data() {
+        // let input = util::read_real_data("day12");
+        // let input = input.iter().map(|line| line.chars().collect()).collect();
+        // assert_eq!(solve(input), 123);
+    // }
 }

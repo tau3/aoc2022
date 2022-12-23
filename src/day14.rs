@@ -1,4 +1,6 @@
-#[derive(PartialEq, Eq, Copy, Clone, Debug)]
+use std::collections::HashSet;
+
+#[derive(PartialEq, Eq, Copy, Clone, Debug, Hash)]
 struct Point {
     col: usize,
     row: usize,
@@ -47,7 +49,7 @@ struct Grid {
     sand: Point,
     state: SandState,
     counter: u32,
-    sands: Vec<Point>,
+    sands: HashSet<Point>,
     borders: Vec<Line>,
 }
 
@@ -68,7 +70,6 @@ pub fn solve(input: &Vec<&str>) -> u32 {
         lines.extend(current);
     }
     let mut grid = Grid::from(lines);
-    println!("grid {:?}", grid);
     grid.run()
 }
 
@@ -78,7 +79,7 @@ impl Grid {
             counter: 0,
             borders: lines,
             sand: (500, 0).into(),
-            sands: Vec::new(),
+            sands: HashSet::new(),
             state: SandState::Down,
         }
     }
@@ -96,27 +97,40 @@ impl Grid {
     }
 
     fn is_over_abyss(&self, point: Point) -> bool {
-        !self
-            .borders
-            .iter()
-            .any(|border| border.contains_col(point.col))
+        for border in self.borders.iter() {
+
+            if border.start.col == border.end.col {
+                if border.start.row > point.row {
+                    return false;
+                }
+            }
+
+            
+            if border.start.row > point.row {
+                if border.contains_col(point.col) {
+                    return false;
+                }
+            }
+
+        }
+        return true;
     }
 
     fn one_step(&mut self) -> bool {
         match self.state {
             SandState::Down => {
                 let bottom = self.sand.bottom();
-                if self.is_over_abyss(bottom) {
-                    println!("{:?} is over abyss!", self.sand);
+                if self.is_over_abyss(self.sand) {
+                    // println!("{:?} is over abyss!", self.sand);
                     self.state = SandState::Abyss;
                     return true;
                 }
                 if !self.is_occupied(&bottom) {
-                    println!("move down to {:?}", bottom);
+                    // println!("move down to {:?}", bottom);
                     self.sand = bottom;
                     true
                 } else {
-                    println!("move left next time");
+                    // println!("move left next time");
                     self.state = SandState::Left;
                     true
                 }
@@ -125,11 +139,11 @@ impl Grid {
                 let bottom_left = self.sand.bottom_left();
                 if !self.is_occupied(&bottom_left) {
                     self.sand = bottom_left;
-                    println!("moved left to {:?}", bottom_left);
+                    // println!("moved left to {:?}", bottom_left);
                     self.state = SandState::Down;
                     true
                 } else {
-                    println!("try move right next time");
+                    // println!("try move right next time");
                     self.state = SandState::Right;
                     true
                 }
@@ -138,21 +152,22 @@ impl Grid {
                 let bottom_right = self.sand.bottom_right();
                 if !self.is_occupied(&bottom_right) {
                     self.sand = bottom_right;
-                    println!("move right to {:?}", bottom_right);
+                    // println!("move right to {:?}", bottom_right);
                     self.state = SandState::Down;
                     true
                 } else {
-                    println!("blocked on {:?}", self.sand);
+                    // println!("blocked on {:?}", self.sand);
                     self.state = SandState::Blocked;
                     true
                 }
             }
             SandState::Blocked => {
-                println!("start new sand");
-                self.sands.push(self.sand);
+                // println!("start new sand");
+                self.sands.insert(self.sand);
                 self.sand = START_POINT.into();
                 self.state = SandState::Down;
                 self.counter += 1;
+				// println!("{}", self.counter);
                 true
             }
             SandState::Abyss => false,
@@ -240,6 +255,6 @@ mod tests {
     fn test_with_real_data() {
         let input = util::read_real_data("day14");
         let input = input.iter().map(|line| line.as_str()).collect();
-        assert_eq!(solve(&input), 123);
+        assert_eq!(solve(&input), 768);
     }
 }

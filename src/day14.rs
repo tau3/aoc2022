@@ -1,4 +1,4 @@
-#[derive(PartialEq, Eq, Copy, Clone)]
+#[derive(PartialEq, Eq, Copy, Clone, Debug)]
 struct Point {
     col: usize,
     row: usize,
@@ -42,6 +42,7 @@ impl From<(usize, usize)> for Point {
     }
 }
 
+#[derive(Debug)]
 struct Grid {
     sand: Point,
     state: SandState,
@@ -51,20 +52,13 @@ struct Grid {
 }
 
 // state for NEXT move
-// Abyss can possibly be removed
+#[derive(Debug)]
 enum SandState {
     Down,
     Left,
     Right,
-    Stop,
     Abyss,
     Blocked,
-}
-
-enum MoveResult {
-    Ok,
-    Blocked,
-    Abyss,
 }
 
 pub fn solve(input: &Vec<&str>) -> u32 {
@@ -74,6 +68,7 @@ pub fn solve(input: &Vec<&str>) -> u32 {
         lines.extend(current);
     }
     let mut grid = Grid::from(lines);
+    println!("grid {:?}", grid);
     grid.run()
 }
 
@@ -112,55 +107,60 @@ impl Grid {
             SandState::Down => {
                 let bottom = self.sand.bottom();
                 if self.is_over_abyss(bottom) {
+                    println!("{:?} is over abyss!", self.sand);
                     self.state = SandState::Abyss;
                     return true;
                 }
                 if !self.is_occupied(&bottom) {
+                    println!("move down to {:?}", bottom);
                     self.sand = bottom;
-                    return true;
+                    true
                 } else {
+                    println!("move left next time");
                     self.state = SandState::Left;
-                    return true;
+                    true
                 }
             }
             SandState::Left => {
                 let bottom_left = self.sand.bottom_left();
                 if !self.is_occupied(&bottom_left) {
                     self.sand = bottom_left;
+                    println!("moved left to {:?}", bottom_left);
                     self.state = SandState::Down;
-                    return true;
+                    true
                 } else {
+                    println!("try move right next time");
                     self.state = SandState::Right;
-                    return true;
+                    true
                 }
             }
             SandState::Right => {
                 let bottom_right = self.sand.bottom_right();
                 if !self.is_occupied(&bottom_right) {
                     self.sand = bottom_right;
+                    println!("move right to {:?}", bottom_right);
                     self.state = SandState::Down;
-                    return false;
+                    true
                 } else {
+                    println!("blocked on {:?}", self.sand);
                     self.state = SandState::Blocked;
-                    return false;
+                    true
                 }
             }
             SandState::Blocked => {
+                println!("start new sand");
                 self.sands.push(self.sand);
                 self.sand = START_POINT.into();
                 self.state = SandState::Down;
-                return true;
+                self.counter += 1;
+                true
             }
-            SandState::Abyss => {
-                return false;
-            }
-            SandState::Stop => {
-                todo!();
-            }
+            SandState::Abyss => false,
         }
     }
 }
 
+#[derive(PartialEq, Eq, Debug)]
 struct Line {
     start: Point,
     end: Point,
@@ -172,8 +172,15 @@ impl Line {
         let len = tokens.len() - 1;
         let mut result = Vec::new();
         for i in 0..len {
-            let start = Point::parse(tokens[i]);
-            let end = Point::parse(tokens[i + 1]);
+            let mut start = Point::parse(tokens[i]);
+            let mut end = Point::parse(tokens[i + 1]);
+            if start.col == end.col {
+                if end.row < start.row {
+                    (start, end) = (end, start);
+                }
+            } else if end.col < start.col {
+                (start, end) = (end, start);
+            }
             let line = Self { start, end };
             result.push(line);
         }
@@ -200,6 +207,26 @@ mod tests {
     use crate::util;
 
     #[test]
+    fn test_parse_line() {
+        let actual = Line::parse("503,4 -> 502,4 -> 502,9 -> 494,9");
+        let expected = vec![
+            Line {
+                start: (502, 4).into(),
+                end: (503, 4).into(),
+            },
+            Line {
+                start: (502, 4).into(),
+                end: (502, 9).into(),
+            },
+            Line {
+                start: (494, 9).into(),
+                end: (502, 9).into(),
+            },
+        ];
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
     fn test_solve() {
         let input = vec![
             "498,4 -> 498,6 -> 496,6",
@@ -207,5 +234,12 @@ mod tests {
         ];
 
         assert_eq!(solve(&input), 24);
+    }
+
+    #[test]
+    fn test_with_real_data() {
+        let input = util::read_real_data("day14");
+        let input = input.iter().map(|line| line.as_str()).collect();
+        assert_eq!(solve(&input), 123);
     }
 }

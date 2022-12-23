@@ -50,7 +50,6 @@ struct Grid {
     state: SandState,
     counter: u32,
     sands: HashSet<Point>,
-    borders: Vec<Line>,
 }
 
 // state for NEXT move
@@ -75,11 +74,14 @@ pub fn solve(input: &Vec<&str>) -> u32 {
 
 impl Grid {
     fn from(lines: Vec<Line>) -> Self {
+        let mut sands = HashSet::new();
+        for line in lines.iter() {
+            sands.extend(line.points());
+        }
         Self {
             counter: 0,
-            borders: lines,
             sand: (500, 0).into(),
-            sands: HashSet::new(),
+            sands,
             state: SandState::Down,
         }
     }
@@ -90,30 +92,11 @@ impl Grid {
     }
 
     fn is_occupied(&self, point: &Point) -> bool {
-        if self.sands.contains(point) {
-            return true;
-        }
-        self.borders.iter().any(|border| border.has_point(point))
+        self.sands.contains(point)
     }
 
     fn is_over_abyss(&self, point: Point) -> bool {
-        for border in self.borders.iter() {
-
-            if border.start.col == border.end.col {
-                if border.start.row > point.row {
-                    return false;
-                }
-            }
-
-            
-            if border.start.row > point.row {
-                if border.contains_col(point.col) {
-                    return false;
-                }
-            }
-
-        }
-        return true;
+        self.sands.iter().all(|p| p.row < point.row)
     }
 
     fn one_step(&mut self) -> bool {
@@ -167,7 +150,7 @@ impl Grid {
                 self.sand = START_POINT.into();
                 self.state = SandState::Down;
                 self.counter += 1;
-				// println!("{}", self.counter);
+                // println!("{}", self.counter);
                 true
             }
             SandState::Abyss => false,
@@ -202,17 +185,24 @@ impl Line {
         result
     }
 
-    fn contains_col(&self, col: usize) -> bool {
-        col >= self.start.col && col <= self.end.col
-    }
-
-    fn has_point(&self, point: &Point) -> bool {
-        let (col, row) = (point.col, point.row);
+    fn points(&self) -> Vec<Point> {
+        let mut result = Vec::new();
         if self.start.col == self.end.col {
-            self.start.col == col && (row >= self.start.row && row <= self.end.row)
+            for i in self.start.row..(self.end.row + 1) {
+                result.push(Point {
+                    col: self.start.col,
+                    row: i,
+                });
+            }
         } else {
-            self.start.row == row && self.contains_col(col)
+            for i in self.start.col..self.end.col + 1 {
+                result.push(Point {
+                    col: i,
+                    row: self.start.row,
+                });
+            }
         }
+        result
     }
 }
 

@@ -127,18 +127,17 @@ impl Grid {
     }
 
     fn on_down(&mut self) -> bool {
-                let bottom = self.sand.bottom();
-                if self.is_over_abyss(self.sand) {
-                    self.state = SandState::Abyss;
-                    return true;
-                }
-                if !self.is_occupied(&bottom) {
-                    self.sand = bottom;
-                    true
-                } else {
-                    self.state = SandState::Left;
-                    true
-                }
+        let bottom = self.sand.bottom();
+        if self.is_over_abyss(self.sand) {
+            self.state = SandState::Abyss;
+            return true;
+        }
+        if !self.is_occupied(&bottom) {
+            self.sand = bottom;
+        } else {
+            self.state = SandState::Left;
+        }
+        true
     }
 
     fn on_left(&mut self) -> bool {
@@ -149,7 +148,7 @@ impl Grid {
         } else {
             self.state = SandState::Right;
         }
-            true
+        true
     }
 
     fn on_right(&mut self) -> bool {

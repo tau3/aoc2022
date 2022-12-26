@@ -2,39 +2,47 @@ use std::collections::HashSet;
 
 type Point = (i32, i32);
 
-fn manhattan_distance((x1, y1): Point, (x2, y2): Point) -> usize {
+fn manhattan_distance((x1, y1): &Point, (x2, y2): &Point) -> usize {
     ((x1 - x2).abs() + (y1 - y2).abs()) as usize
 }
 
-fn area(point @ (col, row): Point, radius: usize) -> HashSet<Point> {
+fn area((col, row): &Point, radius: usize, target_row: usize) -> Vec<Point> {
     let radius_signed = radius as i32;
-    let mut result = HashSet::new();
+    let mut smallest = 0;
+    if radius_signed <= *row {
+        smallest = row - radius_signed;
+    }
+    let biggest = *row as usize + radius;
+    if !(target_row <= biggest && target_row >= smallest as usize) {
+        return vec![];
+    }
+
+    let mut result = Vec::new();
+    let radius_signed = radius_signed - (row - target_row as i32).abs();
     for i in -radius_signed..=radius_signed {
-        for j in -radius_signed..=radius_signed {
-            let current = (i + col, j + row);
-            if manhattan_distance(point, current) <= radius {
-                result.insert(current);
-            }
-        }
+        let candidate = (i + col, target_row as i32);
+        result.push(candidate);
     }
     result
 }
 
 fn solve(input: Vec<(Point, Point)>, row: usize) -> usize {
-    let mut covered = HashSet::new();
     let mut taken = HashSet::new();
-    for (sensor, beacon) in input {
-        let radius = manhattan_distance(sensor, beacon);
-        let area = area(sensor, radius);
+    for (sensor, beacon) in input.iter() {
         taken.insert(sensor);
         taken.insert(beacon);
-        covered.extend(area);
     }
-    covered
-        .iter()
-        .filter(|p| p.1 == row as i32)
-        .filter(|p| !taken.contains(p))
-        .count()
+    let mut result = HashSet::new();
+    for (sensor, beacon) in input.iter() {
+        let radius = manhattan_distance(sensor, beacon);
+        let area = area(sensor, radius, row);
+        for point in area {
+            if !taken.contains(&point) {
+                result.insert(point);
+            }
+        }
+    }
+    result.len()
 }
 
 fn parse(input: Vec<&str>) -> Vec<(Point, Point)> {
@@ -72,7 +80,7 @@ mod tests {
     fn test_part1_with_real_data() {
         let input = util::read_real_data("day15");
         let input = input.iter().map(|line| line.as_str()).collect();
-        assert_eq!(part1(input, 2000000), 124);
+        assert_eq!(part1(input, 2000000), 4919281);
     }
 
     #[test]

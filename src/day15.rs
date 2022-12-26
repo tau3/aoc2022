@@ -1,4 +1,6 @@
-use std::collections::HashSet;
+use std::sync::mpsc::Sender;
+use std::sync::{mpsc, Arc};
+use std::{collections::HashSet, thread};
 
 type Point = (i32, i32);
 
@@ -18,28 +20,65 @@ impl Area {
     }
 }
 
-pub fn part2(input: Vec<&str>, border:usize) -> usize {
+pub fn part2(input: Vec<&str>, border: usize) -> usize {
     let input = parse(input);
     solve_part2(input, border)
 }
 
 fn solve_part2(input: Vec<(Point, Point)>, border: usize) -> usize {
-    let areas: Vec<Area> = input.iter().map(move |(s, b)| Area::from(*s, *b)).collect();
-    for col in 0..=border {
-        for row in 0..=border {
-            let mut found = true;
-            for area in areas.iter() {
-                if area.contains(&(col as i32, row as i32)) {
-                    found = false;
-                    break;
-                }
-            }
-            if found {
-                return col * 4000000 + row;
+    let areas: Vec<Area> = input
+        .iter()
+        .map(move |(sensor, beacon)| Area::from(*sensor, *beacon))
+        .collect();
+    let areas = Arc::new(areas);
+    let region_size = border / 4 - 1;
+    let (sender, receiver) = mpsc::channel();
+    for x in 0..region_size {
+        for y in 0..region_size {
+            let areas = Arc::clone(&areas);
+            let sender = sender.clone();
+            thread::spawn(move || search_in_region(region_size, areas, x, y, sender));
+        }
+    }
+    for _ in 0..16 {
+        if let Some(result) = receiver.recv().unwrap() {
+            return result;
+        }
+    }
+    unreachable!("fail");
+}
+
+fn search_in_region(
+    region_size: usize,
+    areas: Arc<Vec<Area>>,
+    x: usize,
+    y: usize,
+    sender: Sender<Option<usize>>,
+) {
+    for col in 0..region_size {
+        for row in 0..region_size {
+            let global_col = col + x * region_size;
+            let global_row = row + y * region_size;
+            if !is_covered(&areas, &(global_col as i32, global_row as i32)) {
+                sender
+                    .send(Some(global_col * 4000000 + global_row))
+                    .unwrap();
+                return;
             }
         }
     }
-    unreachable!("fail")
+    if let Err(_) = sender.send(None) {
+        // whatever
+    }
+}
+
+fn is_covered(areas: &Vec<Area>, point: &Point) -> bool {
+    for area in areas.iter() {
+        if area.contains(point) {
+            return true;
+        }
+    }
+    return false;
 }
 
 fn manhattan_distance((x1, y1): &Point, (x2, y2): &Point) -> usize {
@@ -124,14 +163,13 @@ mod tests {
         assert_eq!(part1(input, 2000000), 4919281);
     }
 
-    #[test]
-    fn test_part2_with_real_data() {
-        let input = util::read_real_data("day15");
-        let input = input.iter().map(|line| line.as_str()).collect();
-        assert_eq!(part2(input, 4000000), 123);
-    }
+    // #[test]
+    // fn test_part2_with_real_data() {
+    //     let input = util::read_real_data("day15");
+    //     let input = input.iter().map(|line| line.as_str()).collect();
+    //     assert_eq!(part2(input, 4000000), 123);
+    // }
 
-    
     #[test]
     fn test_part1() {
         let input = vec![
@@ -173,7 +211,6 @@ mod tests {
             "Sensor at x=20, y=1: closest beacon is at x=15, y=3",
         ];
 
-        assert_eq!(part2(input, 20),56000011);
+        assert_eq!(part2(input, 20), 56000011);
     }
-
 }

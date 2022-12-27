@@ -67,18 +67,18 @@ fn search_in_region(
             }
         }
     }
-    if let Err(_) = sender.send(None) {
+    if sender.send(None).is_err() {
         // whatever
     }
 }
 
-fn is_covered(areas: &Vec<Area>, point: &Point) -> bool {
+fn is_covered(areas: &[Area], point: &Point) -> bool {
     for area in areas.iter() {
         if area.contains(point) {
             return true;
         }
     }
-    return false;
+    false
 }
 
 fn manhattan_distance((x1, y1): &Point, (x2, y2): &Point) -> usize {

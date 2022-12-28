@@ -1,15 +1,16 @@
 use std::collections::VecDeque;
 
-pub fn solve(mut data: &mut VecDeque<i32>) -> i32 {
+pub fn solve(data: &mut VecDeque<i32>) -> i32 {
     let order: Vec<i32> = data.iter().copied().collect();
     for current in order.iter() {
-        permute(&mut data, *current);
+        permute(data, *current);
     }
-    let zero_index = index_of(&data, 0);
-    let result = data[(zero_index + 1000) % (order.len())]
-        + data[(zero_index + 2000) % (order.len())]
-        + data[(zero_index + 3000) % (order.len())];
-    result
+    at(data, 1000) + at(data, 2000) + at(data, 3000)
+}
+
+fn at(data: &VecDeque<i32>, index: usize) -> i32 {
+    let zero_index = index_of(data, 0);
+    data[(zero_index + index) % (data.len())]
 }
 
 fn index_of(data: &VecDeque<i32>, current: i32) -> usize {
@@ -21,18 +22,17 @@ fn permute(data: &mut VecDeque<i32>, current: i32) {
     if current == 0 {
         return;
     }
-
     let pos = index_of(data, current);
     data.remove(pos);
-
     let mut pos = pos as i32 + current;
+    let len = data.len() as i32;
     if pos < 0 {
         while pos < 0 {
-            pos = data.len() as i32 + pos;
+            pos += len;
         }
-    } else if pos > data.len() as i32 {
-        while pos > data.len() as i32 {
-            pos = pos - data.len() as i32;
+    } else if pos > len {
+        while pos > len {
+	    pos -= len;
         }
     }
     let mut pos = pos as usize;
@@ -51,32 +51,25 @@ mod tests {
     fn test_permute() {
         let mut data: VecDeque<i32> = VecDeque::from([1, 2, -3, 3, -2, 0, 4]);
         permute(&mut data, 1);
-        let actual: Vec<i32> = data.iter().copied().collect();
-        assert_eq!(actual, vec![2, 1, -3, 3, -2, 0, 4]);
+        assert_eq!(data, VecDeque::from([2, 1, -3, 3, -2, 0, 4]));
 
         permute(&mut data, 2);
-        let actual: Vec<i32> = data.iter().copied().collect();
-        assert_eq!(actual, vec![1, -3, 2, 3, -2, 0, 4]);
+        assert_eq!(data, VecDeque::from([1, -3, 2, 3, -2, 0, 4]));
 
         permute(&mut data, -3); // 1, -3, 2, 3, -2, 0, 4
-        let actual: Vec<i32> = data.iter().copied().collect();
-        assert_eq!(actual, vec![1, 2, 3, -2, -3, 0, 4]);
+        assert_eq!(data, VecDeque::from([1, 2, 3, -2, -3, 0, 4]));
 
         permute(&mut data, 3);
-        let actual: Vec<i32> = data.iter().copied().collect();
-        assert_eq!(actual, vec![1, 2, -2, -3, 0, 3, 4]);
+        assert_eq!(data, VecDeque::from([1, 2, -2, -3, 0, 3, 4]));
 
         permute(&mut data, -2); // 1, 2, -3, 0, 3, 4, -2
-        let actual: Vec<i32> = data.iter().copied().collect();
-        assert_eq!(actual, vec![1, 2, -3, 0, 3, 4, -2]);
+        assert_eq!(data, VecDeque::from([1, 2, -3, 0, 3, 4, -2]));
 
         permute(&mut data, 0);
-        let actual: Vec<i32> = data.iter().copied().collect();
-        assert_eq!(actual, vec![1, 2, -3, 0, 3, 4, -2]);
+        assert_eq!(data, VecDeque::from([1, 2, -3, 0, 3, 4, -2]));
 
         permute(&mut data, 4);
-        let actual: Vec<i32> = data.iter().copied().collect();
-        assert_eq!(actual, vec![1, 2, -3, 4, 0, 3, -2]);
+        assert_eq!(data, VecDeque::from([1, 2, -3, 4, 0, 3, -2]));
     }
 
     #[test]

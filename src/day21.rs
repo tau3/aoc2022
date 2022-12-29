@@ -1,20 +1,14 @@
 use std::collections::HashMap;
 
-type Uint = i128;
+type Int = i128;
 
 enum Expr<'a> {
     Calc(&'a str, Operation, &'a str),
-    Number(Uint),
+    Number(Int),
 }
 
 impl<'a> Expr<'a> {
-    fn decompose(&self) -> (&str, &Operation, &str) {
-        match self {
-            Expr::Number(_) => panic!("simple number!"),
-            Expr::Calc(left, oper, right) => (left, oper, right),
-        }
-    }
-    fn eval(&self, registry: &HashMap<&str, Expr>) -> Uint {
+    fn eval(&self, registry: &HashMap<&str, Expr>) -> Int {
         match self {
             Expr::Number(x) => *x,
             Expr::Calc(left, operation, right) => {
@@ -39,11 +33,10 @@ impl<'a> Expr<'a> {
 
     fn is_depend_on_human(&self, registry: &HashMap<&str, Expr>) -> bool {
         match self {
-            Expr::Number(_) => false, 
+            Expr::Number(_) => false,
+            Expr::Calc("humn", _, _) => true,
+            Expr::Calc(_, _, "humn") => true,
             Expr::Calc(left, _, right) => {
-                if right == &"humn" || left == &"humn" {
-                    return true;
-                }
                 let left = registry.get(left).unwrap();
                 let right = registry.get(right).unwrap();
                 left.is_depend_on_human(registry) || right.is_depend_on_human(registry)
@@ -51,18 +44,20 @@ impl<'a> Expr<'a> {
         }
     }
 
-    fn adjust_human(&self, registry: &HashMap<&str, Expr>, operation_result: Uint) -> Uint {
+    fn adjust_human(&self, registry: &HashMap<&str, Expr>, operation_result: Int) -> Int {
         match self {
             Expr::Number(val) => panic!("number {}, target {}", val, operation_result),
+            Expr::Calc("humn", oper, right_name) => {
+                let right = registry.get(right_name).unwrap();
+                oper.reverse_left_var(right.eval(registry), operation_result)
+            }
+            Expr::Calc(left_name, oper, "humn") => {
+                let left = registry.get(left_name).unwrap();
+                oper.reverse_right_var(left.eval(registry), operation_result)
+            }
             Expr::Calc(left_name, oper, right_name) => {
                 let left = registry.get(left_name).unwrap();
                 let right = registry.get(right_name).unwrap();
-                if left_name == &"humn" {
-                    return oper.reverse_left_var(right.eval(registry), operation_result);
-                }
-                if right_name == &"humn" {
-                    return oper.reverse_right_var(left.eval(registry), operation_result);
-                }
                 if left.is_depend_on_human(registry) {
                     let right = right.eval(registry);
                     let operation_result = oper.reverse_left_var(right, operation_result);
@@ -86,7 +81,7 @@ enum Operation {
 }
 
 impl Operation {
-    fn reverse_left_var(&self, right: Uint, operation_result: Uint) -> Uint {
+    fn reverse_left_var(&self, right: Int, operation_result: Int) -> Int {
         match self {
             Operation::Add => operation_result - right,
             Operation::Sub => operation_result + right,
@@ -95,7 +90,7 @@ impl Operation {
         }
     }
 
-    fn reverse_right_var(&self, left: Uint, operation_result: Uint) -> Uint {
+    fn reverse_right_var(&self, left: Int, operation_result: Int) -> Int {
         match self {
             Operation::Add => operation_result - left,
             Operation::Sub => left - operation_result,
@@ -114,7 +109,7 @@ impl Operation {
         }
     }
 
-    fn calc(&self, left: Uint, right: Uint) -> Uint {
+    fn calc(&self, left: Int, right: Int) -> Int {
         match self {
             Operation::Add => left + right,
             Operation::Sub => left - right,
@@ -124,21 +119,13 @@ impl Operation {
     }
 }
 
-pub fn solve(input: &Vec<&str>) -> Uint {
-    let mut registry: HashMap<&str, Expr> = HashMap::new();
-    for line in input {
-        let mut name_and_expr = line.split(": ");
-        let name = name_and_expr.next().unwrap();
-        let expr = name_and_expr.next().unwrap();
-        let expr = Expr::new(expr);
-        registry.insert(name, expr);
-    }
-
+pub fn solve(input: &Vec<&str>) -> Int {
+    let registry = parse_registry(input);
     let root = registry.get("root");
     root.unwrap().eval(&registry)
 }
 
-pub fn part2(input: &Vec<&str>) -> Uint {
+fn parse_registry<'a>(input: &'a Vec<&'a str>) -> HashMap<&'a str, Expr> {
     let mut registry: HashMap<&str, Expr> = HashMap::new();
     for line in input {
         let mut name_and_expr = line.split(": ");
@@ -147,18 +134,25 @@ pub fn part2(input: &Vec<&str>) -> Uint {
         let expr = Expr::new(expr);
         registry.insert(name, expr);
     }
+    registry
+}
+
+pub fn part2(input: &Vec<&str>) -> Int {
+    let registry = parse_registry(input);
 
     let root = registry.get("root").unwrap();
-    let (left_name, _, right_name) = root.decompose();
-    let left = registry.get(left_name).unwrap();
-    let right = registry.get(right_name).unwrap();
-    if left.is_depend_on_human(&registry) {
-        let target = right.eval(&registry);
-        left.adjust_human(&registry, target)
-    } else {
-        let target = left.eval(&registry);
-        right.adjust_human(&registry, target)
+    if let Expr::Calc(left_name, _, right_name) = root {
+        let left = registry.get(left_name).unwrap();
+        let right = registry.get(right_name).unwrap();
+        if left.is_depend_on_human(&registry) {
+            let target = right.eval(&registry);
+            return left.adjust_human(&registry, target);
+        } else {
+            let target = left.eval(&registry);
+            return right.adjust_human(&registry, target);
+        }
     }
+    unreachable!()
 }
 
 #[cfg(test)]
@@ -215,5 +209,12 @@ mod tests {
         let input = util::read_real_data("day21");
         let input = input.iter().map(|line| line.as_str()).collect();
         assert_eq!(solve(&input), 85616733059734);
+    }
+
+    #[test]
+    fn test_part2_with_real_data() {
+        let input = util::read_real_data("day21");
+        let input = input.iter().map(|line| line.as_str()).collect();
+        assert_eq!(part2(&input), 3560324848168);
     }
 }

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-type Uint = u128;
+type Uint = i128;
 
 enum Expr<'a> {
     Calc(&'a str, Operation, &'a str),
@@ -11,7 +11,7 @@ impl<'a> Expr<'a> {
     fn decompose(&self) -> (&str, &Operation, &str) {
         match self {
             Expr::Number(_) => panic!("simple number!"),
-            Expr::Calc(left, oper, right) => (left, &oper, right),
+            Expr::Calc(left, oper, right) => (left, oper, right),
         }
     }
     fn eval(&self, registry: &HashMap<&str, Expr>) -> Uint {
@@ -39,34 +39,45 @@ impl<'a> Expr<'a> {
 
     fn is_depend_on_human(&self, registry: &HashMap<&str, Expr>) -> bool {
         match self {
-            Expr::Number(_) => false,
+            Expr::Number(_) => false, 
             Expr::Calc(left, _, right) => {
                 if right == &"humn" || left == &"humn" {
                     return true;
                 }
                 let left = registry.get(left).unwrap();
                 let right = registry.get(right).unwrap();
-                return left.is_depend_on_human(registry) || right.is_depend_on_human(registry);
+                left.is_depend_on_human(registry) || right.is_depend_on_human(registry)
             }
         }
     }
 
     fn adjust_human(&self, registry: &HashMap<&str, Expr>, operation_result: Uint) -> Uint {
-        let (left, oper, right) = self.decompose();
-        let left = registry.get(left).unwrap();
-        let right = registry.get(right).unwrap();
-        if left.is_depend_on_human(registry) {
-            let right = right.eval(registry);
-            let operation_result = oper.reverse_left_var(right, operation_result);
-            return left.adjust_human(registry, operation_result);
-        } else {
-            let left = left.eval(registry);
-            let operation_result = oper.reverse_right_var(left, operation_result);
-            return right.adjust_human(registry, operation_result);
+        match self {
+            Expr::Number(val) => panic!("number {}, target {}", val, operation_result),
+            Expr::Calc(left_name, oper, right_name) => {
+                let left = registry.get(left_name).unwrap();
+                let right = registry.get(right_name).unwrap();
+                if left_name == &"humn" {
+                    return oper.reverse_left_var(right.eval(registry), operation_result);
+                }
+                if right_name == &"humn" {
+                    return oper.reverse_right_var(left.eval(registry), operation_result);
+                }
+                if left.is_depend_on_human(registry) {
+                    let right = right.eval(registry);
+                    let operation_result = oper.reverse_left_var(right, operation_result);
+                    left.adjust_human(registry, operation_result)
+                } else {
+                    let left = left.eval(registry);
+                    let operation_result = oper.reverse_right_var(left, operation_result);
+                    right.adjust_human(registry, operation_result)
+                }
+            }
         }
     }
 }
 
+#[derive(Debug)]
 enum Operation {
     Add,
     Sub,
@@ -138,15 +149,15 @@ pub fn part2(input: &Vec<&str>) -> Uint {
     }
 
     let root = registry.get("root").unwrap();
-    let (left, _, right) = root.decompose();
-    let left = registry.get(left).unwrap();
-    let right = registry.get(right).unwrap();
+    let (left_name, _, right_name) = root.decompose();
+    let left = registry.get(left_name).unwrap();
+    let right = registry.get(right_name).unwrap();
     if left.is_depend_on_human(&registry) {
         let target = right.eval(&registry);
-        return left.adjust_human(&registry, target);
+        left.adjust_human(&registry, target)
     } else {
         let target = left.eval(&registry);
-        return right.adjust_human(&registry, target);
+        right.adjust_human(&registry, target)
     }
 }
 

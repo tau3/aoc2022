@@ -17,8 +17,8 @@ impl Grid {
 
     fn max_wrap_col(&self, col: usize) -> (usize, usize) {
         let column: Vec<char> = self.col(col);
-        for (i, point) in column.iter().enumerate() {
-            if *point != ' ' {
+        for i in (0..column.len()).rev() {
+            if column[i] != ' ' {
                 return (col, i);
             }
         }
@@ -27,7 +27,7 @@ impl Grid {
 
     fn max_wrap_row(&self, row: usize) -> (usize, usize) {
         let full_row = &self.grid[row];
-        for i in full_row.len() - 1..=0 {
+        for i in (0..full_row.len()).rev() {
             if full_row[i] != ' ' {
                 return (i, row);
             }
@@ -67,30 +67,36 @@ impl Grid {
     }
 
     fn is_wall(&self, col: usize, row: usize) -> bool {
+        if row >= self.grid.len() {
+            return false;
+        }
+        if col >= self.grid[row].len() {
+            return false;
+        }
         self.grid[row][col] == '#'
     }
 
-    fn is_out_of_bounds(&self, col: usize, row: usize) -> bool {
-        // if col < 0 || row < 0 {
-        // return true;
-        // }
-
-        if row >= self.grid.len() {
+    fn is_out_of_bounds(&self, col: isize, row: isize) -> bool {
+        if col < 0 || row < 0 {
             return true;
         }
 
-        let row = &self.grid[row];
-        if col >= row.len() {
+        if row >= self.grid.len() as isize {
             return true;
         }
-        row[col] == ' '
+
+        let row = &self.grid[row as usize];
+        if col as usize >= row.len() {
+            return true;
+        }
+        row[col as usize] == ' '
     }
 
     fn find_start(&self) -> usize {
         let topmost = &self.grid[0];
         for (i, point) in topmost.iter().enumerate() {
             if *point == '.' {
-                return i;
+                return i as usize;
             }
         }
         panic!()
@@ -144,10 +150,6 @@ struct Cursor {
 }
 
 impl Cursor {
-    fn position(&self) -> (usize, usize) {
-        (self.col, self.row)
-    }
-
     fn turn(&self, to: &Direction) -> Self {
         Self {
             col: self.col,
@@ -156,28 +158,12 @@ impl Cursor {
         }
     }
 
-    fn step(&self) -> Self {
+    fn step(&self) -> (isize, isize) {
         match self.direction {
-            Direction::Up => Self {
-                col: self.col,
-                row: self.row - 1,
-                direction: self.direction,
-            },
-            Direction::Down => Self {
-                col: self.col,
-                row: self.row + 1,
-                direction: self.direction,
-            },
-            Direction::Left => Self {
-                col: self.col - 1,
-                row: self.row,
-                direction: self.direction,
-            },
-            Direction::Right => Self {
-                col: self.col + 1,
-                row: self.row,
-                direction: self.direction,
-            },
+            Direction::Up => (self.col as isize, self.row as isize - 1),
+            Direction::Down => (self.col as isize, self.row as isize + 1),
+            Direction::Left => (self.col as isize - 1, self.row as isize),
+            Direction::Right => (self.col as isize + 1, self.row as isize),
         }
     }
 
@@ -199,7 +185,7 @@ struct Trip {
 
 impl Trip {
     fn new(input: &[&str]) -> Self {
-        let grid = Grid::new(input);
+        let grid = Grid::new(&input[0..input.len() - 2]);
         let cursor = Cursor {
             col: grid.find_start(),
             row: 0,
@@ -209,13 +195,11 @@ impl Trip {
     }
 
     fn action(&mut self, action: &Action) {
-        println!("before move: {:?}", self.cursor);
         match action {
             Action::Turn(to) => self.cursor = self.cursor.turn(to),
             Action::Go(distance) => {
                 for _ in 0..*distance {
-                    let updated = self.cursor.step();
-                    let (col, row) = updated.position();
+                    let (col, row) = self.cursor.step();
                     if self.grid.is_out_of_bounds(col, row) {
                         if let Some((c, r)) = self.wrap() {
                             self.cursor = Cursor {
@@ -226,10 +210,14 @@ impl Trip {
                             break;
                         }
                     }
-                    if self.grid.is_wall(col, row) {
+                    if self.grid.is_wall(col as usize, row as usize) {
                         break;
                     }
-                    self.cursor = updated;
+                    self.cursor = Cursor {
+                        col: col as usize,
+                        row: row as usize,
+                        direction: self.cursor.direction,
+                    };
                 }
             }
         }
@@ -323,4 +311,11 @@ mod tests {
         ];
         assert_eq!(solve(&input), 6032);
     }
+
+    // #[test]
+    // fn test_with_real_data() {
+        // let input = util::read_real_data("day22");
+        // let input = input.iter().map(|line| line.as_str()).collect();
+        // assert_eq!(solve(&input), 123);
+    // }
 }

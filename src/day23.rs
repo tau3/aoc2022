@@ -38,12 +38,8 @@ impl Direction {
     fn check_points(&self, (col, row): &Position) -> HashSet<Position> {
         let result = match self {
             Direction::North => [(*col - 1, *row - 1), (*col, *row - 1), (*col + 1, *row - 1)],
-            Direction::East => [
-                (*col + 1, *row - 1),
-                (*col + 1, *row - 1),
-                (col + 1, row + 1),
-            ],
-            Direction::South => [(*col - 1, *row + 1), (*col, *row + 1), (*col - 1, *row + 1)],
+            Direction::East => [(*col + 1, *row - 1), (*col + 1, *row), (col + 1, row + 1)],
+            Direction::South => [(*col - 1, *row + 1), (*col, *row + 1), (*col + 1, *row + 1)],
             Direction::West => [(*col - 1, *row - 1), (*col - 1, *row), (*col - 1, *row + 1)],
         };
         HashSet::from(result)
@@ -58,8 +54,7 @@ struct State {
 impl State {
     fn new(input: &[&str]) -> Self {
         let mut elves = HashSet::new();
-        for row_index in 0..input.len() {
-            let row = input[row_index];
+        for (row_index, row) in input.iter().enumerate() {
             for (col, val) in row.chars().enumerate() {
                 if val == '#' {
                     elves.insert((col as i32, row_index as i32));
@@ -80,45 +75,55 @@ impl State {
         for elf @ (col, row) in self.elves.iter() {
             let adjacent = adjacent(elf);
             let mut occupied = adjacent.intersection(&self.elves);
-            if !occupied.next().is_some() {
+            if occupied.next().is_some() {
                 moving_elves.insert((*col, *row));
             }
         }
         moving_elves
     }
 
-    fn step(&mut self) {
-        let moving_elves = self.get_moving_elves();
-
-        let mut pos_to_elves = HashMap::new();
+    fn group_target_moves(
+        &self,
+        moving_elves: HashSet<Position>,
+    ) -> HashMap<Position, Vec<Position>> {
+        let mut result = HashMap::new();
         for elf in moving_elves {
             for direction in self.directions.iter() {
                 let check_points = direction.check_points(&elf);
-                if !check_points.intersection(&self.elves).next().is_some() {
+                if check_points.intersection(&self.elves).next().is_some() {
                     continue;
                 }
-                let new_pos = direction.go(&elf);
-                match pos_to_elves.get_mut(&new_pos) {
+                let destination = direction.go(&elf);
+                match result.get_mut(&destination) {
                     None => {
-                        pos_to_elves.insert(new_pos, Vec::from([elf]));
+                        result.insert(destination, Vec::from([elf]));
                     }
-                    Some(xs) => {
-                        xs.push(elf);
+                    Some(elves) => {
+                        elves.push(elf);
                     }
                 };
+                break;
             }
         }
+        result
+    }
 
-        for (k, xs) in pos_to_elves.iter() {
-            if xs.len() > 1 {
+    fn move_elves(&mut self, target_to_elves: HashMap<Position, Vec<Position>>) {
+        for (target, elves) in target_to_elves.iter() {
+            if elves.len() > 1 {
                 continue;
             }
 
-            let new_pos = xs[0];
-            self.elves.remove(&k);
-            self.elves.insert(new_pos);
+            let elf = elves[0];
+            self.elves.remove(&elf);
+            self.elves.insert(*target);
         }
+    }
 
+    fn step(&mut self) {
+        let moving_elves = self.get_moving_elves();
+        let target_to_elves = self.group_target_moves(moving_elves);
+        self.move_elves(target_to_elves);
         self.swap_direction();
     }
 
@@ -128,19 +133,19 @@ impl State {
     }
 
     fn count_empty_ground(&self) -> i32 {
-        let mut n = i32::MAX;
-        let mut w = i32::MAX;
-        let mut e = i32::MIN;
-        let mut s = i32::MIN;
+        let mut north = i32::MAX;
+        let mut west = i32::MAX;
+        let mut east = i32::MIN;
+        let mut south = i32::MIN;
 
         for (col, row) in self.elves.iter() {
-            n = min(n, *row);
-            w = min(w, *col);
-            e = max(e, *col);
-            s = max(s, *row);
+            north = min(north, *row);
+            west = min(west, *col);
+            east = max(east, *col);
+            south = max(south, *row);
         }
 
-        (s - n) * (e - w) - self.elves.len() as i32
+        (south - north + 1) * (east - west + 1) - self.elves.len() as i32
     }
 }
 
@@ -155,6 +160,7 @@ pub fn solve(input: &[&str]) -> i32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::util;
 
     #[test]
     fn test_solve() {
@@ -162,5 +168,12 @@ mod tests {
             "....#..", "..###.#", "#...#.#", ".#...##", "#.###..", "##.#.##", ".#..#..",
         ];
         assert_eq!(solve(&input), 110);
+    }
+
+    #[test]
+    fn tet_with_real_data() {
+        let input = util::read_real_data("day23");
+        let input: Vec<&str> = input.iter().map(|line| line.as_str()).collect();
+        assert_eq!(solve(&input), 3788);
     }
 }

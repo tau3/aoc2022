@@ -108,7 +108,8 @@ impl State {
         result
     }
 
-    fn move_elves(&mut self, target_to_elves: HashMap<Position, Vec<Position>>) {
+    fn move_elves(&mut self, target_to_elves: HashMap<Position, Vec<Position>>) -> u32 {
+        let mut result = 0;
         for (target, elves) in target_to_elves.iter() {
             if elves.len() > 1 {
                 continue;
@@ -117,14 +118,17 @@ impl State {
             let elf = elves[0];
             self.elves.remove(&elf);
             self.elves.insert(*target);
+            result += 1;
         }
+        result
     }
 
-    fn step(&mut self) {
+    fn step(&mut self) -> u32 {
         let moving_elves = self.get_moving_elves();
         let target_to_elves = self.group_target_moves(moving_elves);
-        self.move_elves(target_to_elves);
+        let result = self.move_elves(target_to_elves);
         self.swap_direction();
+        result
     }
 
     fn swap_direction(&mut self) {
@@ -157,6 +161,15 @@ pub fn solve(input: &[&str]) -> i32 {
     state.count_empty_ground()
 }
 
+pub fn part2(input: &[&str]) -> u32 {
+    let mut state = State::new(input);
+    let mut result = 1;
+    while state.step() != 0 {
+        result += 1;
+    }
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -171,9 +184,24 @@ mod tests {
     }
 
     #[test]
-    fn tet_with_real_data() {
+    fn test_part2() {
+        let input = [
+            "....#..", "..###.#", "#...#.#", ".#...##", "#.###..", "##.#.##", ".#..#..",
+        ];
+        assert_eq!(part2(&input), 20);
+    }
+
+    #[test]
+    fn test_with_real_data() {
         let input = util::read_real_data("day23");
         let input: Vec<&str> = input.iter().map(|line| line.as_str()).collect();
         assert_eq!(solve(&input), 3788);
+    }
+
+    #[test]
+    fn test_part2_with_real_data() {
+        let input = util::read_real_data("day23");
+        let input: Vec<&str> = input.iter().map(|line| line.as_str()).collect();
+        assert_eq!(part2(&input), 3788);
     }
 }

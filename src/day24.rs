@@ -11,7 +11,7 @@ struct Blizzard {
 }
 
 impl Blizzard {
-    fn at(&self, width: i32, height: i32, t: i32) -> Vertice {
+    fn at(&self, width: i32, height: i32, t: i32) -> (i32, i32) {
         match self.direction {
             '>' => {
                 let mut res = self.col;
@@ -21,7 +21,7 @@ impl Blizzard {
                         res = 1;
                     }
                 }
-                Vertice(res, self.row)
+                (res, self.row)
             }
             '^' => {
                 let mut res = self.row;
@@ -31,7 +31,7 @@ impl Blizzard {
                         res = height - 2;
                     }
                 }
-                Vertice(self.col, res)
+                (self.col, res)
             }
             '<' => {
                 let mut res = self.col;
@@ -41,7 +41,7 @@ impl Blizzard {
                         res = width - 2;
                     }
                 }
-                Vertice(res, self.row)
+                (res, self.row)
             }
             'v' => {
                 let mut res = self.row;
@@ -51,29 +51,26 @@ impl Blizzard {
                         res = 1;
                     }
                 }
-                Vertice(self.col, res)
+                (self.col, res)
             }
-	    _ => panic!("incorrect direction {}", self.direction)
+            _ => panic!("incorrect direction {}", self.direction),
         }
     }
 }
 
 struct Graph {
-    start: Vertice,
-    end: Vertice,
+    start: (i32, i32),
+    end: (i32, i32),
     width: i32,
     height: i32,
     blizzards: HashSet<Blizzard>,
 }
 
-#[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
-struct Vertice(i32, i32);
-
 #[derive(PartialEq, Eq)]
 struct Item {
-    v: Vertice,
+    v: (i32, i32),
     t: i32,
-    end: Vertice,
+    end: (i32, i32),
 }
 
 impl Item {
@@ -118,8 +115,8 @@ impl Graph {
         }
 
         Self {
-            start: Vertice(start as i32, 0),
-            end: Vertice(end as i32, input.len() as i32 - 1),
+            start: (start as i32, 0),
+            end: (end as i32, input.len() as i32 - 1),
             width: input[0].len() as i32,
             height: input.len() as i32,
             blizzards,
@@ -137,7 +134,7 @@ impl Graph {
         while !queue.is_empty() {
             let item = queue.pop().unwrap();
             let (u, t) = (item.v, item.t);
-            let adjacent = self.adjacent(&u, t);
+            let adjacent = self.adjacent(u, t);
             for v in adjacent.iter() {
                 if *v == self.end {
                     return t;
@@ -154,8 +151,7 @@ impl Graph {
         unreachable!()
     }
 
-    fn adjacent(&self, vertice: &Vertice, t: i32) -> Vec<Vertice> {
-        let (col, row) = (vertice.0, vertice.1);
+    fn adjacent(&self, (col, row): (i32, i32), t: i32) -> Vec<(i32, i32)> {
         let adjacent = [
             (col - 1, row),
             (col, row),
@@ -166,16 +162,15 @@ impl Graph {
         let result = adjacent
             .iter()
             .copied()
-            .filter(|(c, r)| !self.is_perimiter(&Vertice(*c, *r)))
+            .filter(|(c, r)| !self.is_perimiter((*c, *r)))
             .filter(|(c, r)| !self.is_blizzard(*c, *r, t))
-            .map(|(c, r)| Vertice(c, r))
             .collect();
         result
     }
 
-    fn is_perimiter(&self, vertice: &Vertice) -> bool {
+    fn is_perimiter(&self, vertice: (i32, i32)) -> bool {
         let (col, row) = (vertice.0, vertice.1);
-        if vertice == &self.start || vertice == &self.end {
+        if vertice == self.start || vertice == self.end {
             return false;
         }
         col < 1 || col >= self.width - 1 || row < 1 || row >= self.height - 1
@@ -183,7 +178,7 @@ impl Graph {
 
     fn is_blizzard(&self, c: i32, r: i32, t: i32) -> bool {
         for blizzard in self.blizzards.iter() {
-            if Vertice(c, r) == blizzard.at(self.width, self.height, t) {
+            if (c, r) == blizzard.at(self.width, self.height, t) {
                 return true;
             }
         }
@@ -216,7 +211,7 @@ mod tests {
             row: 2,
             direction: '>',
         };
-        assert_eq!(blizzard.at(7, 7, 5), Vertice(1, 2));
+        assert_eq!(blizzard.at(7, 7, 5), (1, 2));
     }
 
     #[test]
@@ -226,7 +221,7 @@ mod tests {
             row: 4,
             direction: 'v',
         };
-        assert_eq!(blizzard.at(7, 7, 10), Vertice(4, 4));
+        assert_eq!(blizzard.at(7, 7, 10), (4, 4));
     }
 
     #[test]
@@ -236,9 +231,9 @@ mod tests {
             row: 3,
             direction: '<',
         };
-        assert_eq!(blizzard.at(7, 7, 4), Vertice(4, 3));
-        assert_eq!(blizzard.at(7, 7, 10), Vertice(3, 3));
-        assert_eq!(blizzard.at(7, 7, 14), Vertice(4, 3));
+        assert_eq!(blizzard.at(7, 7, 4), (4, 3));
+        assert_eq!(blizzard.at(7, 7, 10), (3, 3));
+        assert_eq!(blizzard.at(7, 7, 14), (4, 3));
     }
 
     #[test]
@@ -248,6 +243,6 @@ mod tests {
             row: 1,
             direction: '^',
         };
-        assert_eq!(blizzard.at(8, 6, 9), Vertice(5, 4));
+        assert_eq!(blizzard.at(8, 6, 9), (5, 4));
     }
 }

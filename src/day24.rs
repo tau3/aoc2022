@@ -33,7 +33,7 @@ impl Blizzard {
                 let mut res = (a - (b % c)) % c;
                 res += 1;
                 if res <= 0 {
-                    res = c + res;
+                    res += c;
                 }
                 (self.col, res)
             }
@@ -45,7 +45,7 @@ impl Blizzard {
                 let mut res = (a - (b % c)) % c;
                 res += 1;
                 if res <= 0 {
-                    res = c + res;
+                    res += c;
                 }
                 (res, self.row)
             }
@@ -140,10 +140,17 @@ impl Graph {
             end: self.end,
         });
         let mut jumps = HashSet::new();
+        let mut time_to_blizzards = Vec::new();
         while !queue.is_empty() {
             let item = queue.pop().unwrap();
             let (u, t) = (item.v, item.t);
-            let adjacent = self.adjacent(u, t);
+            let mut adjacent = self.adjacent(u);
+            if time_to_blizzards.len() == t as usize {
+                let blizzards = self.blizzards_at(t);
+                time_to_blizzards.push(blizzards);
+            }
+            let blizzards = &time_to_blizzards[t as usize];
+            adjacent.retain(|p| !blizzards.contains(p));
             for v in adjacent.iter() {
                 if *v == self.end {
                     return t;
@@ -160,7 +167,16 @@ impl Graph {
         unreachable!()
     }
 
-    fn adjacent(&self, (col, row): (i32, i32), t: i32) -> Vec<(i32, i32)> {
+    fn blizzards_at(&self, t: i32) -> HashSet<(i32, i32)> {
+        let mut result = HashSet::new();
+        for b in self.blizzards.iter() {
+            let pos = b.at(self.width, self.height, t);
+            result.insert(pos);
+        }
+        result
+    }
+
+    fn adjacent(&self, (col, row): (i32, i32)) -> Vec<(i32, i32)> {
         let adjacent = [
             (col - 1, row),
             (col, row),
@@ -170,9 +186,8 @@ impl Graph {
         ];
         let result = adjacent
             .iter()
-            .copied()
             .filter(|(c, r)| !self.is_perimiter((*c, *r)))
-            .filter(|(c, r)| !self.is_blizzard(*c, *r, t))
+            .copied()
             .collect();
         result
     }
@@ -183,15 +198,6 @@ impl Graph {
             return false;
         }
         col < 1 || col >= self.width - 1 || row < 1 || row >= self.height - 1
-    }
-
-    fn is_blizzard(&self, c: i32, r: i32, t: i32) -> bool {
-        for blizzard in self.blizzards.iter() {
-            if (c, r) == blizzard.at(self.width, self.height, t) {
-                return true;
-            }
-        }
-        false
     }
 }
 

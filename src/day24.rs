@@ -3,7 +3,6 @@ use std::{
     collections::{BinaryHeap, HashSet},
 };
 
-#[derive(Hash, Eq, PartialEq)]
 struct Blizzard {
     col: i32,
     row: i32,
@@ -71,19 +70,19 @@ struct Graph {
     end: (i32, i32),
     width: i32,
     height: i32,
-    blizzards: HashSet<Blizzard>,
+    blizzards: Vec<Blizzard>,
 }
 
 #[derive(PartialEq, Eq)]
 struct Item {
-    v: (i32, i32),
+    position: (i32, i32),
     t: i32,
     end: (i32, i32),
 }
 
 impl Item {
     fn dist_to_end(&self) -> i32 {
-        self.t + (self.end.0 - self.v.0).abs() + (self.end.1 - self.v.1).abs()
+        self.t + (self.end.0 - self.position.0).abs() + (self.end.1 - self.position.1).abs()
     }
 }
 
@@ -101,70 +100,89 @@ impl PartialOrd for Item {
 
 impl Graph {
     fn new(input: &[&str]) -> Self {
-        let start = input[0].chars().position(|x| x == '.').unwrap();
+        let start = input[0].chars().position(|val| val == '.').unwrap();
         let end = input
             .last()
             .unwrap()
             .chars()
-            .position(|x| x == '.')
+            .position(|val| val == '.')
             .unwrap();
 
-        let mut blizzards = HashSet::new();
-        for (r, row) in input.iter().enumerate() {
-            for (c, x) in row.chars().enumerate() {
-                if "<>v^".contains(x) {
-                    blizzards.insert(Blizzard {
-                        col: c as i32,
-                        row: r as i32,
-                        direction: x,
-                    });
-                }
-            }
-        }
+        let blizzards = Graph::collect_blizzards(input);
+        let height = input.len() as i32;
 
         Self {
             start: (start as i32, 0),
-            end: (end as i32, input.len() as i32 - 1),
+            end: (end as i32, height - 1),
             width: input[0].len() as i32,
-            height: input.len() as i32,
+            height,
             blizzards,
         }
     }
 
-    fn bfs(&mut self) -> i32 {
-        // TODO try VecDeque?
+    fn collect_blizzards(input: &[&str]) -> Vec<Blizzard> {
+        let mut blizzards = Vec::new();
+        for (row, row_data) in input.iter().enumerate() {
+            for (col, direction) in row_data.chars().enumerate() {
+                if "<>v^".contains(direction) {
+                    blizzards.push(Blizzard {
+                        col: col as i32,
+                        row: row as i32,
+                        direction,
+                    });
+                }
+            }
+        }
+        blizzards
+    }
+
+    fn search(&mut self) -> i32 {
         let mut queue = BinaryHeap::new();
-        queue.push(Item {
-            v: self.start,
-            t: 0,
-            end: self.end,
-        });
+        self.push(&mut queue, self.start, 0);
+
         let mut jumps = HashSet::new();
         let mut time_to_blizzards = Vec::new();
+
         while !queue.is_empty() {
-            let item = queue.pop().unwrap();
-            let (u, t) = (item.v, item.t);
+            let (u, t) = self.pop(&mut queue);
             let mut adjacent = self.adjacent(u);
-            if time_to_blizzards.len() == t as usize {
-                let blizzards = self.blizzards_at(t);
-                time_to_blizzards.push(blizzards);
-            }
-            let blizzards = &time_to_blizzards[t as usize];
-            adjacent.retain(|p| !blizzards.contains(p));
+            let blizzards = self.cached_blizzards(&mut time_to_blizzards, t);
+            adjacent.retain(|position| !blizzards.contains(position));
             for v in adjacent.iter() {
                 if *v == self.end {
                     return t;
                 }
                 if jumps.insert((*v, t + 1)) {
-                    queue.push(Item {
-                        v: *v,
-                        t: t + 1,
-                        end: self.end,
-                    });
+                    self.push(&mut queue, *v, t + 1);
                 }
             }
         }
         unreachable!()
+    }
+
+    fn pop(&self, queue: &mut BinaryHeap<Item>) -> ((i32, i32), i32) {
+        let result = queue.pop().unwrap();
+        (result.position, result.t)
+    }
+
+    fn push(&self, queue: &mut BinaryHeap<Item>, position: (i32, i32), t: i32) {
+        queue.push(Item {
+            position,
+            t,
+            end: self.end,
+        });
+    }
+
+    fn cached_blizzards<'a>(
+        &'a self,
+        time_to_blizzards: &'a mut Vec<HashSet<(i32, i32)>>,
+        t: i32,
+    ) -> &'a HashSet<(i32, i32)> {
+        if time_to_blizzards.len() == t as usize {
+            let blizzards = self.blizzards_at(t);
+            time_to_blizzards.push(blizzards);
+        }
+        &time_to_blizzards[t as usize]
     }
 
     fn blizzards_at(&self, t: i32) -> HashSet<(i32, i32)> {
@@ -203,7 +221,7 @@ impl Graph {
 
 pub fn solve(input: &[&str]) -> i32 {
     let mut graph = Graph::new(input);
-    graph.bfs()
+    graph.search()
 }
 
 #[cfg(test)]
@@ -235,18 +253,6 @@ mod tests {
             direction: '>',
         };
         assert_eq!(blizzard.at(7, 7, 5), (1, 2));
-    }
-
-    #[test]
-    fn test_left() {
-        let blizzard = Blizzard {
-            col: 3,
-            row: 2,
-            direction: '<',
-        };
-        for i in 0..100 {
-            println!("{} {:?}", i, blizzard.at(7, 7, i));
-        }
     }
 
     #[test]

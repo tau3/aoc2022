@@ -1,4 +1,7 @@
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::{
+    cmp::Ordering,
+    collections::{BinaryHeap, HashMap, HashSet},
+};
 
 #[derive(Hash, Eq, PartialEq)]
 struct Blizzard {
@@ -52,6 +55,34 @@ struct Graph {
 #[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
 struct Vertice(i32, i32);
 
+#[derive(PartialEq, Eq)]
+struct Item {
+    v: Vertice,
+    t: i32,
+    end: Vertice,
+}
+
+impl Item {
+    fn dist_to_end(&self) -> i32 {
+        self.t + (self.end.0 - self.v.0).abs() + (self.end.1 - self.v.1).abs()
+    }
+}
+
+impl Ord for Item {
+    fn cmp(&self, other: &Self) -> Ordering {
+        // self.t.cmp(&other.t)
+        // other.t.cmp(&self.t)
+        // self.dist_to_end().cmp(&other.dist_to_end())
+        other.dist_to_end().cmp(&self.dist_to_end())
+    }
+}
+
+impl PartialOrd for Item {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
 impl Graph {
     fn new(input: &[&str]) -> Self {
         let start = input[0].chars().position(|x| x == '.').unwrap();
@@ -94,27 +125,47 @@ impl Graph {
             self.parent.insert(u, None);
         }
 
-        self.colors.insert(self.start, 'g');
+        // self.colors.insert(self.start, 'g');
         self.distance.insert(self.start, 0);
         self.parent.insert(self.start, None);
 
-        let mut queue = VecDeque::from([(self.start.clone(), 0)]);
+        println!("END={:?}", self.end);
+
+        let mut queue = BinaryHeap::new();
+        queue.push(Item {
+            v: self.start,
+            t: 0,
+            end: self.end,
+        });
+        let mut jumps = HashSet::new();
         while !queue.is_empty() {
-            let (u, t) = queue.pop_front().unwrap();
+            let item = queue.pop().unwrap();
+            let (u, t) = (item.v, item.t);
+            if t > 20 {
+                panic!("fail");
+            }
             let adjacent = self.adjacent(&u, t);
+            println!("adj to {:?}: {:?}", u, adjacent);
             for v in adjacent.iter() {
                 if *v == self.end {
                     return t + 1;
                 }
-                println!("v={:?}", v);
-                if self.colors[&v] == 'w' {
+                // println!("v={:?}, color={}", v, self.colors[&v]);
+
+                // if self.colors[&v] == 'w' {
+                if jumps.insert((*v, t + 1)) {
                     self.colors.insert(*v, 'g');
                     self.distance.insert(*v, 1);
                     self.parent.insert(*v, Some(u.clone()));
-                    queue.push_back((*v, t + 1));
+                    println!("push v={:?}, t={:?}", *v, t + 1);
+                    queue.push(Item {
+                        v: *v,
+                        t: t + 1,
+                        end: self.end,
+                    });
                 }
             }
-            self.colors.insert(u.clone(), 'b');
+            // self.colors.insert(u.clone(), 'b');
         }
         unreachable!()
     }
@@ -128,25 +179,34 @@ impl Graph {
             (col, row - 1),
             (col, row + 1),
         ];
+        println!("try {:?}", adjacent);
 
-        println!("w={}", self.width);
+        // println!("w={}", self.width);
         adjacent
             .iter()
             .copied()
-            .filter(|(c, r)| {
-                *c > 0
-                    && *r > 0
-                    && *c < self.width - 1
-                    && (r < &self.height || self.end == Vertice(*c, *r))
-            })
+            .filter(|(c, r)| !self.is_perimiter(&Vertice(*c, *r)))
             .filter(|(c, r)| !self.is_blizzard(*c, *r, t))
             .map(|(c, r)| Vertice(c, r))
             .collect()
     }
 
+    fn is_perimiter(&self, vertice: &Vertice) -> bool {
+        let (col, row) = (vertice.0, vertice.1);
+        if vertice == &self.start || vertice == &self.end {
+            return false;
+        }
+        let result = col < 1 || col >= self.width - 1 || row < 1 || row >= self.height - 1;
+        if result {
+            println!("out of bounds: {:?}", vertice);
+        }
+        result
+    }
+
     fn is_blizzard(&self, c: i32, r: i32, t: i32) -> bool {
         for blizzard in self.blizzards.iter() {
             if Vertice(c, r) == blizzard.at(self.width, self.height, t) {
+                println!("blizzard: {:?}", (c, r));
                 return true;
             }
         }

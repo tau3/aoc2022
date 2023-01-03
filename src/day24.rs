@@ -13,10 +13,46 @@ struct Blizzard {
 impl Blizzard {
     fn at(&self, width: i32, height: i32, t: i32) -> Vertice {
         match self.direction {
-            Direction::Up => Vertice(self.col, (self.row - t) % (height - 2)),
-            Direction::Down => Vertice(self.col, (self.row + t) % (height - 2)),
-            Direction::Left => Vertice((self.col - t) % (width - 2), self.row),
-            Direction::Right => Vertice((self.col + t) % (width - 2), self.row),
+            Direction::Right => {
+                let mut res = self.col;
+                for _ in 0..t {
+                    res += 1;
+                    if res == width-1 {
+                        res = 1;
+                    }
+                }
+                Vertice(res, self.row)
+            }
+            Direction::Up => {
+                let mut res = self.row;
+                for _ in 0..t {
+                    res -= 1;
+                    if res == 0 {
+                        res = height - 2;
+                    }
+                }
+                Vertice(self.col, res)
+            }
+            Direction::Left => {
+                let mut res = self.col;
+                for _ in 0..t {
+                    res -= 1;
+                    if res == 0 {
+                        res = width - 2;
+                    }
+                }
+                Vertice(res, self.row)
+            }
+            Direction::Down => {
+                let mut res = self.row;
+                for _ in 0..t {
+                    res += 1;
+                    if res == height-1 {
+                        res = 1;
+                    }
+                }
+                Vertice(self.col, res)
+            }
         }
     }
 }
@@ -129,7 +165,7 @@ impl Graph {
         self.distance.insert(self.start, 0);
         self.parent.insert(self.start, None);
 
-        println!("END={:?}", self.end);
+        println!("START={:?}, END={:?}", self.start, self.end);
 
         let mut queue = BinaryHeap::new();
         queue.push(Item {
@@ -145,10 +181,10 @@ impl Graph {
                 panic!("fail");
             }
             let adjacent = self.adjacent(&u, t);
-            println!("adj to {:?}: {:?}", u, adjacent);
+            // println!("adj to {:?}: {:?}", u, adjacent);
             for v in adjacent.iter() {
                 if *v == self.end {
-                    return t + 1;
+                    return t;
                 }
                 // println!("v={:?}, color={}", v, self.colors[&v]);
 
@@ -157,7 +193,7 @@ impl Graph {
                     self.colors.insert(*v, 'g');
                     self.distance.insert(*v, 1);
                     self.parent.insert(*v, Some(u.clone()));
-                    println!("push v={:?}, t={:?}", *v, t + 1);
+                    // println!("push v={:?}, t={:?}", *v, t + 1);
                     queue.push(Item {
                         v: *v,
                         t: t + 1,
@@ -179,18 +215,35 @@ impl Graph {
             (col, row - 1),
             (col, row + 1),
         ];
-        println!("try {:?}", adjacent);
+        // println!("try {:?}", adjacent);
 
         // println!("w={}", self.width);
-        adjacent
+        let result = adjacent
             .iter()
             .copied()
             .filter(|(c, r)| !self.is_perimiter(&Vertice(*c, *r)))
             .filter(|(c, r)| !self.is_blizzard(*c, *r, t))
             .map(|(c, r)| Vertice(c, r))
-            .collect()
+            .collect();
+
+        println!(
+            "good adjacent to {:?} at {} are {:?}, blizzards: {:?}",
+            vertice,
+            t,
+            result,
+            self.blizzards(t)
+        );
+        result
     }
 
+    fn blizzards(&self, t: i32) -> HashSet<Vertice> {
+        let mut result = HashSet::new();
+        for x in self.blizzards.iter() {
+            let y = x.at(self.width, self.height, t);
+            result.insert(y);
+        }
+        result
+    }
     fn is_perimiter(&self, vertice: &Vertice) -> bool {
         let (col, row) = (vertice.0, vertice.1);
         if vertice == &self.start || vertice == &self.end {
@@ -198,7 +251,7 @@ impl Graph {
         }
         let result = col < 1 || col >= self.width - 1 || row < 1 || row >= self.height - 1;
         if result {
-            println!("out of bounds: {:?}", vertice);
+            // println!("out of bounds: {:?}", vertice);
         }
         result
     }
@@ -244,6 +297,19 @@ mod tests {
     }
 
     #[test]
+    fn test_right_blizzard_at2() {
+        let blizzard = Blizzard {
+            col: 3,
+            row: 2,
+            direction: Direction::Left,
+        };
+        for i in 0..100 {
+            println!("{} {:?}", i, blizzard.at(8, 6, i));
+        }
+        // assert_eq!(blizzard.at(8, 6, 1), Vertice(1, 2));
+    }
+
+    #[test]
     fn test_right_blizzard_at() {
         let blizzard = Blizzard {
             col: 1,
@@ -260,6 +326,28 @@ mod tests {
             row: 4,
             direction: Direction::Down,
         };
-        assert_eq!(blizzard.at(7, 7, 3), Vertice(4, 2));
+        assert_eq!(blizzard.at(7, 7, 10), Vertice(4, 4));
+    }
+
+    #[test]
+    fn test_left_blizzard_at() {
+        let blizzard = Blizzard {
+            col: 3,
+            row: 3,
+            direction: Direction::Left,
+        };
+        assert_eq!(blizzard.at(7, 7, 4), Vertice(4, 3));
+        assert_eq!(blizzard.at(7, 7, 10), Vertice(3, 3));
+        assert_eq!(blizzard.at(7, 7, 14), Vertice(4, 3));
+    }
+
+    #[test]
+    fn test_up_blizzard_at() {
+        let blizzard = Blizzard {
+            col: 5,
+            row: 1,
+            direction: Direction::Up,
+        };
+        assert_eq!(blizzard.at(8, 6, 9), Vertice(5, 4));
     }
 }

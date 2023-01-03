@@ -224,6 +224,20 @@ pub fn solve(input: &[&str]) -> i32 {
     graph.search()
 }
 
+pub fn part2(input: &[&str]) -> i32 {
+    let mut graph = Graph::new(input);
+    let forward = graph.search();
+
+    let (start, end) = (graph.start, graph.end);
+    (graph.start, graph.end) = (end, start);
+    let backward = graph.search();
+
+    (graph.start, graph.end) = (start, end);
+    let again = graph.search();
+
+    forward + backward + again + 1
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -239,10 +253,26 @@ mod tests {
     }
 
     #[test]
+    fn test_part2() {
+        let input = [
+            "#.######", "#>>.<^<#", "#.<..<<#", "#>v.><>#", "#<^v^^>#", "######.#",
+        ];
+
+        assert_eq!(part2(&input), 54);
+    }
+
+    #[test]
     fn test_with_real_data() {
         let input = util::read_real_data("day24");
         let input: Vec<&str> = input.iter().map(|line| line.as_str()).collect();
         assert_eq!(solve(&input), 232);
+    }
+    
+    #[test]
+    fn test_part2_with_real_data() {
+        let input = util::read_real_data("day24");
+        let input: Vec<&str> = input.iter().map(|line| line.as_str()).collect();
+        assert_eq!(part2(&input), 700);
     }
 
     #[test]

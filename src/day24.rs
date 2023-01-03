@@ -14,42 +14,50 @@ impl Blizzard {
     fn at(&self, width: i32, height: i32, t: i32) -> (i32, i32) {
         match self.direction {
             '>' => {
-                let mut res = self.col;
-                for _ in 0..t {
-                    res += 1;
-                    if res == width - 1 {
-                        res = 1;
-                    }
+                // (A + B) mod C = (A mod C + B mod C) mod C
+                let a = self.col - 1;
+                let b = t;
+                let c = width - 2;
+                let mut res = (a + (b % c)) % c;
+                res += 1;
+                if res >= width {
+                    res -= c;
                 }
                 (res, self.row)
             }
             '^' => {
-                let mut res = self.row;
-                for _ in 0..t {
-                    res -= 1;
-                    if res == 0 {
-                        res = height - 2;
-                    }
+                // (A - B) mod C = (A mod C - B mod C) mod C
+                let a = self.row - 1;
+                let b = t;
+                let c = height - 2;
+                let mut res = (a - (b % c)) % c;
+                res += 1;
+                if res <= 0 {
+                    res = c + res;
                 }
                 (self.col, res)
             }
             '<' => {
-                let mut res = self.col;
-                for _ in 0..t {
-                    res -= 1;
-                    if res == 0 {
-                        res = width - 2;
-                    }
+                // (A - B) mod C = (A mod C - B mod C) mod C
+                let a = self.col - 1;
+                let b = t;
+                let c = width - 2;
+                let mut res = (a - (b % c)) % c;
+                res += 1;
+                if res <= 0 {
+                    res = c + res;
                 }
                 (res, self.row)
             }
             'v' => {
-                let mut res = self.row;
-                for _ in 0..t {
-                    res += 1;
-                    if res == height - 1 {
-                        res = 1;
-                    }
+                // (A + B) mod C = (A mod C + B mod C) mod C
+                let a = self.row - 1;
+                let b = t;
+                let c = height - 2;
+                let mut res = (a + (b % c)) % c;
+                res += 1;
+                if res >= height {
+                    res -= c;
                 }
                 (self.col, res)
             }
@@ -124,6 +132,7 @@ impl Graph {
     }
 
     fn bfs(&mut self) -> i32 {
+        // TODO try VecDeque?
         let mut queue = BinaryHeap::new();
         queue.push(Item {
             v: self.start,
@@ -194,6 +203,7 @@ pub fn solve(input: &[&str]) -> i32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::util;
 
     #[test]
     fn test_solve() {
@@ -205,6 +215,13 @@ mod tests {
     }
 
     #[test]
+    fn test_with_real_data() {
+        let input = util::read_real_data("day24");
+        let input: Vec<&str> = input.iter().map(|line| line.as_str()).collect();
+        assert_eq!(solve(&input), 232);
+    }
+
+    #[test]
     fn test_right_blizzard_at() {
         let blizzard = Blizzard {
             col: 1,
@@ -212,6 +229,18 @@ mod tests {
             direction: '>',
         };
         assert_eq!(blizzard.at(7, 7, 5), (1, 2));
+    }
+
+    #[test]
+    fn test_left() {
+        let blizzard = Blizzard {
+            col: 3,
+            row: 2,
+            direction: '<',
+        };
+        for i in 0..100 {
+            println!("{} {:?}", i, blizzard.at(7, 7, i));
+        }
     }
 
     #[test]

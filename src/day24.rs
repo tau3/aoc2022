@@ -1,6 +1,6 @@
 use std::{
     cmp::Ordering,
-    collections::{BinaryHeap, HashMap, HashSet},
+    collections::{BinaryHeap, HashSet},
 };
 
 #[derive(Hash, Eq, PartialEq)]
@@ -17,7 +17,7 @@ impl Blizzard {
                 let mut res = self.col;
                 for _ in 0..t {
                     res += 1;
-                    if res == width-1 {
+                    if res == width - 1 {
                         res = 1;
                     }
                 }
@@ -47,7 +47,7 @@ impl Blizzard {
                 let mut res = self.row;
                 for _ in 0..t {
                     res += 1;
-                    if res == height-1 {
+                    if res == height - 1 {
                         res = 1;
                     }
                 }
@@ -78,9 +78,6 @@ impl Direction {
 }
 
 struct Graph {
-    colors: HashMap<Vertice, char>,
-    distance: HashMap<Vertice, i32>,
-    parent: HashMap<Vertice, Option<Vertice>>,
     start: Vertice,
     end: Vertice,
     width: i32,
@@ -106,9 +103,6 @@ impl Item {
 
 impl Ord for Item {
     fn cmp(&self, other: &Self) -> Ordering {
-        // self.t.cmp(&other.t)
-        // other.t.cmp(&self.t)
-        // self.dist_to_end().cmp(&other.dist_to_end())
         other.dist_to_end().cmp(&self.dist_to_end())
     }
 }
@@ -130,8 +124,8 @@ impl Graph {
             .unwrap();
 
         let mut blizzards = HashSet::new();
-        for r in 0..input.len() {
-            for (c, x) in input[r].chars().enumerate() {
+        for (r, row) in input.iter().enumerate() {
+            for (c, x) in row.chars().enumerate() {
                 if "<>v^".contains(x) {
                     blizzards.insert(Blizzard {
                         col: c as i32,
@@ -143,9 +137,6 @@ impl Graph {
         }
 
         Self {
-            colors: HashMap::new(),
-            distance: HashMap::new(),
-            parent: HashMap::new(),
             start: Vertice(start as i32, 0),
             end: Vertice(end as i32, input.len() as i32 - 1),
             width: input[0].len() as i32,
@@ -155,18 +146,6 @@ impl Graph {
     }
 
     fn bfs(&mut self) -> i32 {
-        for u in self.vertices() {
-            self.colors.insert(u, 'w');
-            self.distance.insert(u, i32::MAX);
-            self.parent.insert(u, None);
-        }
-
-        // self.colors.insert(self.start, 'g');
-        self.distance.insert(self.start, 0);
-        self.parent.insert(self.start, None);
-
-        println!("START={:?}, END={:?}", self.start, self.end);
-
         let mut queue = BinaryHeap::new();
         queue.push(Item {
             v: self.start,
@@ -177,23 +156,12 @@ impl Graph {
         while !queue.is_empty() {
             let item = queue.pop().unwrap();
             let (u, t) = (item.v, item.t);
-            if t > 20 {
-                panic!("fail");
-            }
             let adjacent = self.adjacent(&u, t);
-            // println!("adj to {:?}: {:?}", u, adjacent);
             for v in adjacent.iter() {
                 if *v == self.end {
                     return t;
                 }
-                // println!("v={:?}, color={}", v, self.colors[&v]);
-
-                // if self.colors[&v] == 'w' {
                 if jumps.insert((*v, t + 1)) {
-                    self.colors.insert(*v, 'g');
-                    self.distance.insert(*v, 1);
-                    self.parent.insert(*v, Some(u.clone()));
-                    // println!("push v={:?}, t={:?}", *v, t + 1);
                     queue.push(Item {
                         v: *v,
                         t: t + 1,
@@ -201,7 +169,6 @@ impl Graph {
                     });
                 }
             }
-            // self.colors.insert(u.clone(), 'b');
         }
         unreachable!()
     }
@@ -215,9 +182,6 @@ impl Graph {
             (col, row - 1),
             (col, row + 1),
         ];
-        // println!("try {:?}", adjacent);
-
-        // println!("w={}", self.width);
         let result = adjacent
             .iter()
             .copied()
@@ -225,56 +189,24 @@ impl Graph {
             .filter(|(c, r)| !self.is_blizzard(*c, *r, t))
             .map(|(c, r)| Vertice(c, r))
             .collect();
-
-        println!(
-            "good adjacent to {:?} at {} are {:?}, blizzards: {:?}",
-            vertice,
-            t,
-            result,
-            self.blizzards(t)
-        );
         result
     }
 
-    fn blizzards(&self, t: i32) -> HashSet<Vertice> {
-        let mut result = HashSet::new();
-        for x in self.blizzards.iter() {
-            let y = x.at(self.width, self.height, t);
-            result.insert(y);
-        }
-        result
-    }
     fn is_perimiter(&self, vertice: &Vertice) -> bool {
         let (col, row) = (vertice.0, vertice.1);
         if vertice == &self.start || vertice == &self.end {
             return false;
         }
-        let result = col < 1 || col >= self.width - 1 || row < 1 || row >= self.height - 1;
-        if result {
-            // println!("out of bounds: {:?}", vertice);
-        }
-        result
+        col < 1 || col >= self.width - 1 || row < 1 || row >= self.height - 1
     }
 
     fn is_blizzard(&self, c: i32, r: i32, t: i32) -> bool {
         for blizzard in self.blizzards.iter() {
             if Vertice(c, r) == blizzard.at(self.width, self.height, t) {
-                println!("blizzard: {:?}", (c, r));
                 return true;
             }
         }
-        return false;
-    }
-
-    fn vertices(&self) -> Vec<Vertice> {
-        let mut result = Vec::new();
-        for c in 0..self.width {
-            for r in 0..self.height {
-                result.push(Vertice(c, r));
-            }
-        }
-        // println!("all: {:?}", result);
-        result
+        false
     }
 }
 
@@ -294,19 +226,6 @@ mod tests {
         ];
 
         assert_eq!(solve(&input), 18);
-    }
-
-    #[test]
-    fn test_right_blizzard_at2() {
-        let blizzard = Blizzard {
-            col: 3,
-            row: 2,
-            direction: Direction::Left,
-        };
-        for i in 0..100 {
-            println!("{} {:?}", i, blizzard.at(8, 6, i));
-        }
-        // assert_eq!(blizzard.at(8, 6, 1), Vertice(1, 2));
     }
 
     #[test]

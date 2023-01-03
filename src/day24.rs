@@ -7,13 +7,13 @@ use std::{
 struct Blizzard {
     col: i32,
     row: i32,
-    direction: Direction,
+    direction: char,
 }
 
 impl Blizzard {
     fn at(&self, width: i32, height: i32, t: i32) -> Vertice {
         match self.direction {
-            Direction::Right => {
+            '>' => {
                 let mut res = self.col;
                 for _ in 0..t {
                     res += 1;
@@ -23,7 +23,7 @@ impl Blizzard {
                 }
                 Vertice(res, self.row)
             }
-            Direction::Up => {
+            '^' => {
                 let mut res = self.row;
                 for _ in 0..t {
                     res -= 1;
@@ -33,7 +33,7 @@ impl Blizzard {
                 }
                 Vertice(self.col, res)
             }
-            Direction::Left => {
+            '<' => {
                 let mut res = self.col;
                 for _ in 0..t {
                     res -= 1;
@@ -43,7 +43,7 @@ impl Blizzard {
                 }
                 Vertice(res, self.row)
             }
-            Direction::Down => {
+            'v' => {
                 let mut res = self.row;
                 for _ in 0..t {
                     res += 1;
@@ -53,26 +53,7 @@ impl Blizzard {
                 }
                 Vertice(self.col, res)
             }
-        }
-    }
-}
-
-#[derive(Hash, PartialEq, Eq)]
-enum Direction {
-    Up,
-    Down,
-    Left,
-    Right,
-}
-
-impl Direction {
-    fn parse(direction: char) -> Self {
-        match direction {
-            'v' => Direction::Down,
-            '>' => Direction::Right,
-            '^' => Direction::Up,
-            '<' => Direction::Left,
-            _ => panic!("unknown direction '{}'", direction),
+	    _ => panic!("incorrect direction {}", self.direction)
         }
     }
 }
@@ -130,7 +111,7 @@ impl Graph {
                     blizzards.insert(Blizzard {
                         col: c as i32,
                         row: r as i32,
-                        direction: Direction::parse(x),
+                        direction: x,
                     });
                 }
             }
@@ -233,7 +214,7 @@ mod tests {
         let blizzard = Blizzard {
             col: 1,
             row: 2,
-            direction: Direction::Right,
+            direction: '>',
         };
         assert_eq!(blizzard.at(7, 7, 5), Vertice(1, 2));
     }
@@ -243,7 +224,7 @@ mod tests {
         let blizzard = Blizzard {
             col: 4,
             row: 4,
-            direction: Direction::Down,
+            direction: 'v',
         };
         assert_eq!(blizzard.at(7, 7, 10), Vertice(4, 4));
     }
@@ -253,7 +234,7 @@ mod tests {
         let blizzard = Blizzard {
             col: 3,
             row: 3,
-            direction: Direction::Left,
+            direction: '<',
         };
         assert_eq!(blizzard.at(7, 7, 4), Vertice(4, 3));
         assert_eq!(blizzard.at(7, 7, 10), Vertice(3, 3));
@@ -265,7 +246,7 @@ mod tests {
         let blizzard = Blizzard {
             col: 5,
             row: 1,
-            direction: Direction::Up,
+            direction: '^',
         };
         assert_eq!(blizzard.at(8, 6, 9), Vertice(5, 4));
     }

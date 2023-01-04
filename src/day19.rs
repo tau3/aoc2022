@@ -1,3 +1,4 @@
+use regex::Regex;
 use std::collections::HashSet;
 
 // const ORE: usize = 0;
@@ -61,13 +62,17 @@ impl State {
     }
 }
 
-pub fn estimate(blueprint: &Blueprint) -> i32 {
+fn estimate(blueprint: &Blueprint) -> i32 {
     let initial = State::initial();
-    let mut states = vec![HashSet::from([initial])];
+    let mut states = HashSet::from([initial]);
+    let mut cache = HashSet::new();
     let mut result = 0;
-    for t in 0..=24 {
+    for _ in 0..=24 {
         let mut next = HashSet::new();
-        for state in states[t].iter() {
+        for state in states.iter() {
+            if !cache.insert(*state) {
+                continue;
+            }
             let next_states = state.advance(blueprint);
             next.extend(next_states);
         }
@@ -76,21 +81,53 @@ pub fn estimate(blueprint: &Blueprint) -> i32 {
             .map(|state| state.resources[GEODE])
             .max()
             .unwrap();
-	result = result.max(max_geode);
+        result = result.max(max_geode);
         next.retain(|state| state.resources[GEODE] == result);
-        // next.retain(|state| state.resources[GEODE] == max_geode);
-        states.push(next);
-        println!("size: {} {}", t, states.last().unwrap().len());
+        states = next;
+        // println!("size: {} {}", t, states.len());
     }
-    // let mut result = 0;
-    // for state in states.last().unwrap() {
-        // result = result.max(state.resources[GEODE]);
-    // }
+    println!("estimate bluprint {}: {}", blueprint.index, result);
     result
 }
 
-pub struct Blueprint {
+pub fn solve(input: &[&str]) -> i32 {
+    input
+        .iter()
+        .map(|line| Blueprint::new(line))
+        .map(|blueprint| blueprint.index * estimate(&blueprint))
+        .sum::<i32>()
+}
+
+struct Blueprint {
+    index: i32,
     prices: [[i32; 4]; 4],
+}
+
+impl Blueprint {
+    fn new(raw: &str) -> Self {
+        let regex = Regex::new(r"[^0-9]+").unwrap();
+        let only_numbers = regex.replace_all(raw, " ");
+        let tokens: Vec<i32> = only_numbers
+            .trim()
+            .split(' ')
+            .map(|token| token.parse())
+            .map(|token| token.unwrap())
+            .collect();
+        let index = tokens[0];
+        let ore_robot_ore = tokens[1];
+        let clay_robot_ore = tokens[2];
+        let obsidian_robot_ore = tokens[3];
+        let obsidian_robot_clay = tokens[4];
+        let geode_robot_ore = tokens[5];
+        let geode_robot_obsidian = tokens[6];
+        let prices = [
+            [ore_robot_ore, 0, 0, 0],
+            [clay_robot_ore, 0, 0, 0],
+            [obsidian_robot_ore, obsidian_robot_clay, 0, 0],
+            [geode_robot_ore, 0, geode_robot_obsidian, 0],
+        ];
+        Self { index, prices }
+    }
 }
 
 #[cfg(test)]
@@ -100,8 +137,15 @@ mod tests {
     #[test]
     fn test_estimate() {
         let blueprint = Blueprint {
+            index: 1,
             prices: [[4, 0, 0, 0], [2, 0, 0, 0], [3, 14, 0, 0], [2, 0, 7, 0]],
         };
         assert_eq!(estimate(&blueprint), 12);
+    }
+
+    #[test]
+    fn test_solve() {
+        let input = [ "Blueprint 1: Each ore robot costs 4 ore. Each clay robot costs 2 ore. Each obsidian robot costs 3 ore and 14 clay. Each geode robot costs 2 ore and 7 obsidian.", "Blueprint 2: Each ore robot costs 2 ore. Each clay robot costs 3 ore. Each obsidian robot costs 3 ore and 8 clay. Each geode robot costs 3 ore and 12 obsidian."];
+        assert_eq!(solve(&input), 33);
     }
 }

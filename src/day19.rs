@@ -1,3 +1,4 @@
+use rayon::prelude::*;
 use regex::Regex;
 use std::collections::HashSet;
 
@@ -50,7 +51,9 @@ impl State {
         let prices = blueprint.prices[kind];
         let mut resources = self.resources;
         for i in 0..resources.len() {
-            resources[i] -= prices[i];
+            if i != GEODE {
+                resources[i] -= prices[i];
+            }
             if resources[i] < 0 {
                 return None;
             }
@@ -67,7 +70,7 @@ fn estimate(blueprint: &Blueprint) -> i32 {
     let mut states = HashSet::from([initial]);
     let mut cache = HashSet::new();
     let mut result = 0;
-    for _ in 0..=24 {
+    for t in 0..24 {
         let mut next = HashSet::new();
         for state in states.iter() {
             if !cache.insert(*state) {
@@ -84,15 +87,14 @@ fn estimate(blueprint: &Blueprint) -> i32 {
         result = result.max(max_geode);
         next.retain(|state| state.resources[GEODE] == result);
         states = next;
-        // println!("size: {} {}", t, states.len());
+        // println!("size: {} {}, res: {}", t, states.len(), result);
     }
-    println!("estimate bluprint {}: {}", blueprint.index, result);
     result
 }
 
 pub fn solve(input: &[&str]) -> i32 {
     input
-        .iter()
+        .par_iter()
         .map(|line| Blueprint::new(line))
         .map(|blueprint| blueprint.index * estimate(&blueprint))
         .sum::<i32>()
@@ -100,7 +102,7 @@ pub fn solve(input: &[&str]) -> i32 {
 
 struct Blueprint {
     index: i32,
-    prices: [[i32; 4]; 4],
+    prices: [[i32; 3]; 4],
 }
 
 impl Blueprint {
@@ -121,10 +123,10 @@ impl Blueprint {
         let geode_robot_ore = tokens[5];
         let geode_robot_obsidian = tokens[6];
         let prices = [
-            [ore_robot_ore, 0, 0, 0],
-            [clay_robot_ore, 0, 0, 0],
-            [obsidian_robot_ore, obsidian_robot_clay, 0, 0],
-            [geode_robot_ore, 0, geode_robot_obsidian, 0],
+            [ore_robot_ore, 0, 0],
+            [clay_robot_ore, 0, 0],
+            [obsidian_robot_ore, obsidian_robot_clay, 0],
+            [geode_robot_ore, 0, geode_robot_obsidian],
         ];
         Self { index, prices }
     }
@@ -133,14 +135,22 @@ impl Blueprint {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::util;
 
     #[test]
     fn test_estimate() {
         let blueprint = Blueprint {
             index: 1,
-            prices: [[4, 0, 0, 0], [2, 0, 0, 0], [3, 14, 0, 0], [2, 0, 7, 0]],
+            prices: [[4, 0, 0], [2, 0, 0], [3, 14, 0], [2, 0, 7]],
         };
-        assert_eq!(estimate(&blueprint), 12);
+        assert_eq!(estimate(&blueprint), 9);
+    }
+
+    #[test]
+    fn test_with_real_data() {
+        let input = util::read_real_data("day19");
+        let input: Vec<&str> = input.iter().map(|line| line.as_str()).collect();
+        assert_eq!(solve(&input), 1834);
     }
 
     #[test]

@@ -2,9 +2,6 @@ use rayon::prelude::*;
 use regex::Regex;
 use std::collections::HashSet;
 
-// const ORE: usize = 0;
-// const CLAY: usize = 1;
-// const OBSIDIAN: usize = 2;
 const GEODE: usize = 3;
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
@@ -65,12 +62,12 @@ impl State {
     }
 }
 
-fn estimate(blueprint: &Blueprint) -> i32 {
+fn estimate(blueprint: &Blueprint, t_max: i32) -> i32 {
     let initial = State::initial();
     let mut states = HashSet::from([initial]);
     let mut cache = HashSet::new();
     let mut result = 0;
-    for t in 0..24 {
+    for _ in 0..t_max {
         let mut next = HashSet::new();
         for state in states.iter() {
             if !cache.insert(*state) {
@@ -87,7 +84,6 @@ fn estimate(blueprint: &Blueprint) -> i32 {
         result = result.max(max_geode);
         next.retain(|state| state.resources[GEODE] == result);
         states = next;
-        // println!("size: {} {}, res: {}", t, states.len(), result);
     }
     result
 }
@@ -96,8 +92,17 @@ pub fn solve(input: &[&str]) -> i32 {
     input
         .par_iter()
         .map(|line| Blueprint::new(line))
-        .map(|blueprint| blueprint.index * estimate(&blueprint))
+        .map(|blueprint| blueprint.index * estimate(&blueprint, 24))
         .sum::<i32>()
+}
+
+pub fn part2(input: &[&str]) -> i32 {
+    input
+        .par_iter()
+        .take(3)
+        .map(|line| Blueprint::new(line))
+        .map(|blueprint| estimate(&blueprint, 32))
+        .product()
 }
 
 struct Blueprint {
@@ -143,7 +148,8 @@ mod tests {
             index: 1,
             prices: [[4, 0, 0], [2, 0, 0], [3, 14, 0], [2, 0, 7]],
         };
-        assert_eq!(estimate(&blueprint), 9);
+        assert_eq!(estimate(&blueprint, 24), 9);
+        assert_eq!(estimate(&blueprint, 32), 56);
     }
 
     #[test]
@@ -151,6 +157,13 @@ mod tests {
         let input = util::read_real_data("day19");
         let input: Vec<&str> = input.iter().map(|line| line.as_str()).collect();
         assert_eq!(solve(&input), 1834);
+    }
+
+    #[test]
+    fn test_part2_with_real_data() {
+        let input = util::read_real_data("day19");
+        let input: Vec<&str> = input.iter().map(|line| line.as_str()).collect();
+        assert_eq!(part2(&input), 2128);
     }
 
     #[test]

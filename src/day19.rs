@@ -1,11 +1,11 @@
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
 
 // const ORE: usize = 0;
 // const CLAY: usize = 1;
 // const OBSIDIAN: usize = 2;
 const GEODE: usize = 3;
 
-#[derive(Clone, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 struct State {
     resources: [i32; 4],
     robots: [i32; 4],
@@ -21,8 +21,11 @@ impl State {
     fn advance(&self, blueprint: &Blueprint) -> HashSet<State> {
         let mut result = HashSet::new();
 
+	if let Some(x) = self.build_robot(blueprint, GEODE) {
+	    return HashSet::from([x]);
+	}
         result.insert(self.just_harvest());
-        for i in 0..self.resources.len() {
+        for i in 0..self.resources.len()-1 {
             let variant= self.build_robot(blueprint, i);
 	    if let Some(variant) = variant {
 		result.insert(variant);
@@ -61,13 +64,18 @@ impl State {
 fn estimate(blueprint: &Blueprint) -> i32 {
     let initial = State::initial();
     let mut states = vec![HashSet::from([initial])];
+    let mut cache = HashMap::new();
     for i in 0..=24 {
         let mut next = HashSet::new();
-        for state in &states[i] {
-            let next_states = state.advance(blueprint);
+        for state in states[i].iter() {
+	    if !cache.contains_key(state) {
+		cache.insert(state.clone(), state.advance(blueprint));
+	    }
+            let next_states = &cache[state];
             next.extend(next_states);
         }
         states.push(next);
+	println!("size: {} {}", i, states.last().unwrap().len());
     }
     let mut result = 0;
     for state in states.last().unwrap() {

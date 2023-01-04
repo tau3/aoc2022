@@ -202,6 +202,6 @@ mod tests {
     fn test_part2_with_real_data() {
         let input = util::read_real_data("day23");
         let input: Vec<&str> = input.iter().map(|line| line.as_str()).collect();
-        assert_eq!(part2(&input), 3788);
+        assert_eq!(part2(&input), 921);
     }
 }

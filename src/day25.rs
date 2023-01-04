@@ -1,4 +1,4 @@
-fn snafu_to_decimal(snafu: &str) -> i32 {
+fn snafu_to_decimal(snafu: &str) -> i64 {
     let mut res = 0;
     for (i, v) in snafu.chars().rev().enumerate() {
         let v = match v {
@@ -9,12 +9,12 @@ fn snafu_to_decimal(snafu: &str) -> i32 {
             '=' => -2,
             _ => panic!("unknown token {}", v),
         };
-        res += 5_i32.pow(i as u32) * v;
+        res += 5_i64.pow(i as u32) * v;
     }
     res
 }
 
-fn decimal_to_snafu(mut decimal: i32) -> String {
+fn decimal_to_snafu(mut decimal: i64) -> String {
     let mut res = String::from("");
     while decimal != 0 {
         let i = (decimal + 2) % 5;
@@ -27,7 +27,7 @@ fn decimal_to_snafu(mut decimal: i32) -> String {
             _ => panic!("unknown token {}", i),
         };
         res.push_str(v);
-        decimal =( decimal +2)/ 5;
+        decimal = (decimal + 2) / 5;
     }
 
     res.chars().rev().collect()
@@ -41,6 +41,14 @@ pub fn solve(input: &[&str]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::util;
+
+    #[test]
+    fn test_with_real_data(){
+        let input = util::read_real_data("day25");
+        let input: Vec<&str> = input.iter().map(|line| line.as_str()).collect();
+        assert_eq!(solve(&input), "asd");
+    }
 
     #[test]
     fn test_solve() {

@@ -96,7 +96,7 @@ impl Grid {
         let topmost = &self.grid[0];
         for (i, point) in topmost.iter().enumerate() {
             if *point == '.' {
-                return i as usize;
+                return i;
             }
         }
         panic!()

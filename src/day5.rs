@@ -98,7 +98,6 @@ mod tests {
         let source = stacks.get_mut((from - 1) as usize).unwrap();
         let slice: Vec<char> = source
             .drain(0..(amount) as usize)
-            .into_iter()
             .rev()
             .collect();
         let target = stacks.get_mut((to - 1) as usize).unwrap();

@@ -90,7 +90,7 @@ impl Grid {
 
     fn adjacent(&self, (col, row): Point) -> Vec<Point> {
         let (col, row) = (col as i32, row as i32);
-        let result = vec![
+        let result = [
             (col, row + 1),
             (col + 1, row),
             (col, row - 1),
